@@ -52,7 +52,14 @@ require("lazy").setup({
     dependencies = { "nvim-lua/plenary.nvim" },
   },
 
-  -- 4. Colorscheme (pick one you like; I'll start with gruvbox)
-  { "ellisonleao/gruvbox.nvim" },
+  -- 4. Colorscheme   
+  { 
+    "catppuccin/nvim",
+    name = "catppuccin",
+    priority = 1000,
+    config = function ()
+    	vim.cmd.colorscheme("catppuccin-mocha")
+    end
+  },
 })
 

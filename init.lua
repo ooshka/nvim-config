@@ -8,5 +8,3 @@ require("user.lualine")
 require("user.nvim-tree")
 require("user.telescope")
 
-vim.o.background = "dark"
-vim.cmd.colorscheme("gruvbox")
