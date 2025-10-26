@@ -5,6 +5,7 @@ local map = vim.keymap.set
 -- Fast saving / quitting
 map("n", "<leader>w", "<cmd>w<cr>", { desc = "Save file" })
 map("n", "<leader>q", "<cmd>q<cr>", { desc = "Quit window" })
+map("n", "<leader>x", ":bd<CR>", { desc = "Close current file" })
 
 -- Better window movement
 map("n", "<C-h>", "<C-w>h", { desc = "Left window" })
