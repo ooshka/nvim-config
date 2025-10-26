@@ -7,7 +7,6 @@ require("mason").setup()
 require("mason-lspconfig").setup({
   ensure_installed = {
     "lua_ls",  -- Lua
-    "ts_ls",   -- TypeScript / JavaScript
     "pyright", -- Python
     "ruby_lsp" -- Ruby
   },
@@ -85,11 +84,6 @@ vim.lsp.config["lua_ls"] = {
   },
 }
 
-vim.lsp.config["ts_ls"] = {
-  on_attach = on_attach,
-  capabilities = capabilities,
-}
-
 vim.lsp.config["pyright"] = {
   on_attach = on_attach,
   capabilities = capabilities,
@@ -102,7 +96,6 @@ vim.lsp.config["ruby_lsp"] = {
 
 -- Enable Servers
 vim.lsp.enable("lua_ls")
-vim.lsp.enable("ts_ls")
 vim.lsp.enable("pyright")
 vim.lsp.enable("ruby_lsp")
 

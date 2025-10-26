@@ -30,3 +30,5 @@ o.swapfile = false
 o.undofile = true            -- persistent undo
 opt.splitright = true
 opt.splitbelow = true
+opt.errorbells = false
+opt.visualbell = false
