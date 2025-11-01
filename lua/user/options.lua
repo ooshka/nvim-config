@@ -11,12 +11,13 @@ wo.relativenumber = true  -- relative line numbers
 wo.cursorline = true      -- highlight current line
 o.scrolloff = 4           -- keep 4 lines visible above/below cursor
 o.signcolumn = "yes"
+opt.fileformats = { "unix", "dos" }
 
 -- Tabs / indent
-bo.expandtab = true       -- use spaces instead of tabs
-bo.shiftwidth = 2         -- indent size
-bo.tabstop = 2            -- how wide a TAB feels
-bo.smartindent = true
+opt.expandtab = true       -- use spaces instead of tabs
+opt.shiftwidth = 2         -- indent size
+opt.tabstop = 2            -- how wide a TAB feels
+opt.smartindent = true
 
 -- Search
 o.ignorecase = true

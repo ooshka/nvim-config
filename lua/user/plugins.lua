@@ -61,5 +61,26 @@ require("lazy").setup({
     	vim.cmd.colorscheme("catppuccin-mocha")
     end
   },
+    -- Smooth window scroll
+  {
+    "karb94/neoscroll.nvim",
+    opts = {
+      mappings = { "<C-u>", "<C-d>", "<C-b>", "<C-f>", "zz", "zt", "zb" },
+      easing = "circular",
+      duration_multiplier = 1.0,
+    },
+  },
+
+  -- Cursor animation effect
+  {
+    "sphamba/smear-cursor.nvim",
+    opts = {
+      smear_between_neighbor_lines = true,
+      smear_insert_mode = true,
+      -- optional tuning:
+      stiffness = 0.8,
+      damping = 0.95,
+    },
+  },
 })
 
