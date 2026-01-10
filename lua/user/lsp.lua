@@ -84,14 +84,25 @@ vim.lsp.config["lua_ls"] = {
   },
 }
 
+local container = "myproj-dev-1"
+
 vim.lsp.config["pyright"] = {
   on_attach = on_attach,
   capabilities = capabilities,
+  cmd = { "lsp-in-docker", container, "pyright-langserver", "--stdio"},
 }
 
 vim.lsp.config["ruby_lsp"] = {
   on_attach = on_attach,
   capabilities = capabilities,
+  cmd = { "lsp-in-docker", container, "ruby-lsp"},
+}
+
+
+vim.lsp.config["ruff_lsp"] = {
+  on_attach = on_attach,
+  capabilities = capabilities,
+  cmd = { "lsp-in-docker", container, "ruff-lsp" },
 }
 
 -- Enable Servers
