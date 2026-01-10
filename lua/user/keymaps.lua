@@ -37,4 +37,6 @@ vim.keymap.set("n", "<leader>cc", function()
   })
   vim.fn.termopen("codex")
 end, { desc = "Open Codex AI assistant" })
-
+-- Terminal --
+vim.keymap.set("n", "<leader>t", "<cmd>ToggleTerm<cr>", { desc = "Toggle terminal" })
+vim.keymap.set("t", "<Esc>", [[<C-\><C-n><cmd>ToggleTerm<cr>]], { desc = "Exit terminal and toggle" })

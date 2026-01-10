@@ -88,9 +88,10 @@ require("lazy").setup({
     version = "*",
     config = function()
       require("toggleterm").setup({
-	open_mapping = [[<leader>t]],
-	direction = "float",
-	shade_terminals = false,
+	      direction = "float",
+	      shade_terminals = false,
+        start_in_insert = true,
+        persist_mode = false,
       })
     end
   }
