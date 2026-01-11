@@ -70,24 +70,20 @@ end
 local capabilities = require("cmp_nvim_lsp").default_capabilities()
 
 -- Define Server Configs
-vim.lsp.config["lua_ls"] = {
+vim.lsp.config("lua_ls", {
   on_attach = on_attach,
   capabilities = capabilities,
   settings = {
-    Lua = {
-      diagnostics = {
-        globals = { "vim" },
-      },
-    },
+    Lua = { diagnostics = { globals = { "vim" } } },
   },
-}
+})
 
-vim.lsp.config["ruby_lsp"] = {
+vim.lsp.config("ruby_lsp", {
   on_attach = on_attach,
   capabilities = capabilities,
   cmd = { "bundle", "exec", "ruby-lsp" },
-  root_dir = require("lspconfig.util").root_pattern("Gemfile", ".git"),
-}
+  root_markers = { "Gemfile", ".git", ".ruby-version" },
+})
 
 -- Enable Servers
 vim.lsp.enable("lua_ls")

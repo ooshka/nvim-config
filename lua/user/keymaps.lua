@@ -19,7 +19,10 @@ map("n", "<leader>h", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
 map("n", "gl", vim.diagnostic.open_float, { desc = "Line diagnostics" })
 map("n", "[d", vim.diagnostic.goto_prev, { desc = "Prev diagnostic" })
 map("n", "]d", vim.diagnostic.goto_next, { desc = "Next diagnostic" })
-
+map("n", "<leader>ld", function ()
+    vim.diagnostic.reset(nil,0)
+  end, { desc = "Prompt diagnostic lint" }
+)
 -- Codex --
 vim.keymap.set("n", "<leader>cc", function()
   local buf = vim.api.nvim_create_buf(false, true)
