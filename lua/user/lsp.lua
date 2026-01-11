@@ -7,8 +7,6 @@ require("mason").setup()
 require("mason-lspconfig").setup({
   ensure_installed = {
     "lua_ls",  -- Lua
-    "pyright", -- Python
-    "ruby_lsp" -- Ruby
   },
   automatic_installation = true,
 })
@@ -84,14 +82,6 @@ vim.lsp.config["lua_ls"] = {
   },
 }
 
-local container = "myproj-dev-1"
-
-vim.lsp.config["pyright"] = {
-  on_attach = on_attach,
-  capabilities = capabilities,
-  cmd = { "pyright-langserver", "--stdio"},
-}
-
 vim.lsp.config["ruby_lsp"] = {
   on_attach = on_attach,
   capabilities = capabilities,
@@ -99,15 +89,7 @@ vim.lsp.config["ruby_lsp"] = {
   root_dir = require("lspconfig.util").root_pattern("Gemfile", ".git"),
 }
 
-
-vim.lsp.config["ruff_lsp"] = {
-  on_attach = on_attach,
-  capabilities = capabilities,
-  cmd = { "ruff-lsp" },
-}
-
 -- Enable Servers
 vim.lsp.enable("lua_ls")
-vim.lsp.enable("pyright")
 vim.lsp.enable("ruby_lsp")
 
