@@ -7,4 +7,3 @@ require("user.treesitter")
 require("user.lualine")
 require("user.nvim-tree")
 require("user.telescope")
-

@@ -33,3 +33,17 @@ opt.splitright = true
 opt.splitbelow = true
 opt.errorbells = false
 opt.visualbell = false
+
+-- WSL clipboard integration
+vim.g.clipboard = {
+  name = "win32yank",
+  copy = {
+    ["+"] = "win32yank.exe -i --crlf",
+    ["*"] = "win32yank.exe -i --crlf",
+  },
+  paste = {
+    ["+"] = "win32yank.exe -o --lf",
+    ["*"] = "win32yank.exe -o --lf",
+  },
+  cache_enabled = 1,
+}
