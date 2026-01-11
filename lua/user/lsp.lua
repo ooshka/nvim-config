@@ -95,7 +95,8 @@ vim.lsp.config["pyright"] = {
 vim.lsp.config["ruby_lsp"] = {
   on_attach = on_attach,
   capabilities = capabilities,
-  cmd = { "ruby-lsp" },
+  cmd = { "bundle", "exec", "ruby-lsp" },
+  root_dir = require("lspconfig.util").root_pattern("Gemfile", ".git"),
 }
 
 
