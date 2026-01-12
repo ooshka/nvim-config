@@ -47,7 +47,6 @@ require("lazy").setup({
   -- 3. UI niceties
   { "nvim-lualine/lualine.nvim" },     -- statusline
   { "kyazdani42/nvim-web-devicons" },  -- icons (auto used by many plugins)
-  { "nvim-tree/nvim-tree.lua" },       -- file explorer
   { "nvim-telescope/telescope.nvim",   -- fuzzy finder
     dependencies = { "nvim-lua/plenary.nvim" },
   },
@@ -90,9 +89,28 @@ require("lazy").setup({
       require("toggleterm").setup({
 	      shade_terminals = false,
         start_in_insert = true,
-        persist_mode = false,
       })
     end
-  }
+  },
+  -- Buffer tabs
+  {
+    "akinsho/bufferline.nvim",
+    version = "*",
+    dependencies = "nvim-tree/nvim-web-devicons",
+    config = function()
+      require("bufferline").setup {}
+    end
+  },
+  -- Mini files
+  {
+    "echasnovski/mini.files",
+    version = false,
+    config = function()
+      require("mini.files").setup()
+      vim.keymap.set("n", "<leader>e", function()
+        require("mini.files").open()
+      end)
+    end
+  },
 })
 

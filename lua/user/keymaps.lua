@@ -57,18 +57,3 @@ vim.keymap.set("t", "<Esc>", [[<C-\><C-n>]], { desc = "Exit terminal mode" })
 
 -- 1) Terminal-mode: Esc just exits terminal insert mode
 vim.keymap.set("t", "<Esc>", [[<C-\><C-n>]], { noremap = true, silent = true, desc = "Exit terminal mode" })
-
--- 2) For ToggleTerm terminals only: in NORMAL mode, Esc closes/minimizes *this* terminal
-vim.api.nvim_create_autocmd("TermOpen", {
-  callback = function(ev)
-    -- ToggleTerm sets this buffer variable for its terminals
-    if vim.b[ev.buf].toggle_number ~= nil then
-      vim.keymap.set("n", "<Esc>", function()
-        local ok, toggleterm = pcall(require, "toggleterm")
-        if not ok then return end
-        toggleterm.toggle(vim.b.toggle_number) -- toggle THIS terminal by its ID
-      end, { buffer = ev.buf, noremap = true, silent = true, desc = "Minimize this ToggleTerm" })
-    end
-  end,
-})
-
