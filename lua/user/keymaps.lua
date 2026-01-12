@@ -1,5 +1,4 @@
 -- lua/user/keymaps.lua
-vim.g.mapleader = " " -- <Space> is leader
 local map = vim.keymap.set
 
 -- Fast saving / quitting
@@ -12,6 +11,9 @@ map("n", "<C-j>", "<C-w>j", { desc = "Down window" })
 map("n", "<C-k>", "<C-w>k", { desc = "Up window" })
 map("n", "<C-l>", "<C-w>l", { desc = "Right window" })
 
+-- Buffer swapping
+map("n", "<Tab>", "<cmd>bnext<CR>", { desc = "Next Buffer" })
+map("n", "<S-Tab>", "<cmd>bprevious<CR>", { desc = "Previous Buffer" })
 -- Clear search highlight
 map("n", "<leader>h", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
 
@@ -23,6 +25,7 @@ map("n", "<leader>ld", function ()
     vim.diagnostic.reset(nil,0)
   end, { desc = "Prompt diagnostic lint" }
 )
+
 -- Codex --
 vim.keymap.set("n", "<leader>cc", function()
   local buf = vim.api.nvim_create_buf(false, true)
@@ -40,6 +43,32 @@ vim.keymap.set("n", "<leader>cc", function()
   })
   vim.fn.termopen("codex")
 end, { desc = "Open Codex AI assistant" })
+
 -- Terminal --
-vim.keymap.set("n", "<leader>t", "<cmd>ToggleTerm<cr>", { desc = "Toggle terminal" })
-vim.keymap.set("t", "<Esc>", [[<C-\><C-n><cmd>ToggleTerm<cr>]], { desc = "Exit terminal and toggle" })
+
+local term = require("user.terminal")
+
+vim.keymap.set("n", "<leader>1", term.toggle_float, { desc = "Terminal (float scratch)" })
+
+vim.keymap.set("n", "<leader>2", term.toggle_bottom_2, { desc = "Terminal #2 (bottom)" })
+vim.keymap.set("n", "<leader>3", term.toggle_bottom_3, { desc = "Terminal #3 (bottom)" })
+
+vim.keymap.set("t", "<Esc>", [[<C-\><C-n>]], { desc = "Exit terminal mode" })
+
+-- 1) Terminal-mode: Esc just exits terminal insert mode
+vim.keymap.set("t", "<Esc>", [[<C-\><C-n>]], { noremap = true, silent = true, desc = "Exit terminal mode" })
+
+-- 2) For ToggleTerm terminals only: in NORMAL mode, Esc closes/minimizes *this* terminal
+vim.api.nvim_create_autocmd("TermOpen", {
+  callback = function(ev)
+    -- ToggleTerm sets this buffer variable for its terminals
+    if vim.b[ev.buf].toggle_number ~= nil then
+      vim.keymap.set("n", "<Esc>", function()
+        local ok, toggleterm = pcall(require, "toggleterm")
+        if not ok then return end
+        toggleterm.toggle(vim.b.toggle_number) -- toggle THIS terminal by its ID
+      end, { buffer = ev.buf, noremap = true, silent = true, desc = "Minimize this ToggleTerm" })
+    end
+  end,
+})
+

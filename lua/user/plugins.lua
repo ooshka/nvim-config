@@ -88,7 +88,6 @@ require("lazy").setup({
     version = "*",
     config = function()
       require("toggleterm").setup({
-	      direction = "float",
 	      shade_terminals = false,
         start_in_insert = true,
         persist_mode = false,
