@@ -14,6 +14,7 @@ map("n", "<C-l>", "<C-w>l", { desc = "Right window" })
 -- Buffer swapping
 map("n", "<Tab>", "<cmd>bnext<CR>", { desc = "Next Buffer" })
 map("n", "<S-Tab>", "<cmd>bprevious<CR>", { desc = "Previous Buffer" })
+map("n", "<leader>b", "<cmd>bdelete<CR>", { desc = "Delete Buffer" })
 -- Clear search highlight
 map("n", "<leader>h", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
 
@@ -25,24 +26,6 @@ map("n", "<leader>ld", function ()
     vim.diagnostic.reset(nil,0)
   end, { desc = "Prompt diagnostic lint" }
 )
-
--- Codex --
-vim.keymap.set("n", "<leader>cc", function()
-  local buf = vim.api.nvim_create_buf(false, true)
-  local width  = math.floor(vim.o.columns * 0.8)
-  local height = math.floor(vim.o.lines * 0.8)
-  local row = math.floor((vim.o.lines - height) / 2)
-  local col = math.floor((vim.o.columns - width) / 2)
-  vim.api.nvim_open_win(buf, true, {
-    relative = "editor",
-    row = row,
-    col = col,
-    width = width,
-    height = height,
-    border = "rounded",
-  })
-  vim.fn.termopen("codex")
-end, { desc = "Open Codex AI assistant" })
 
 -- Terminal --
 
