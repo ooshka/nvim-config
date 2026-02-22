@@ -15,6 +15,10 @@ map("n", "<C-l>", "<C-w>l", { desc = "Right window" })
 map("n", "<Tab>", "<cmd>bnext<CR>", { desc = "Next Buffer" })
 map("n", "<S-Tab>", "<cmd>bprevious<CR>", { desc = "Previous Buffer" })
 map("n", "<leader>b", "<cmd>bdelete<CR>", { desc = "Delete Buffer" })
+vim.keymap.set("n", "<leader>r", function()
+  vim.cmd("edit!")
+end, { desc = "Reload Buffer" })
+
 -- Clear search highlight
 map("n", "<leader>h", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
 
