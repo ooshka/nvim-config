@@ -24,8 +24,8 @@ map("n", "<leader>h", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
 
 -- Diagnostic float (built-in LSP)
 map("n", "gl", vim.diagnostic.open_float, { desc = "Line diagnostics" })
-map("n", "[d", vim.diagnostic.goto_prev, { desc = "Prev diagnostic" })
-map("n", "]d", vim.diagnostic.goto_next, { desc = "Next diagnostic" })
+map("n", "[d", function() vim.diagnostic.jump({ count = -1, float = true }) end, { desc = "Prev diagnostic" })
+map("n", "]d", function() vim.diagnostic.jump({ count = 1, float = true }) end, { desc = "Next diagnostic" })
 map("n", "<leader>ld", function ()
     vim.diagnostic.reset(nil,0)
   end, { desc = "Prompt diagnostic lint" }
