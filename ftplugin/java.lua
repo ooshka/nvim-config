@@ -40,17 +40,36 @@ end
 local project_name = vim.fn.fnamemodify(root_dir, ":p:h:t")
 local workspace_dir = vim.fn.stdpath("data") .. "/jdtls-workspace/" .. project_name
 
+-- Tell jdtls the client supports its extended protocol (progress reports, class
+-- file contents, build-config commands, etc.). Without this jdtls logs
+-- "_java...command not supported on client" and the Gradle/Maven project import
+-- degrades -- which leaves imports unresolved (red) and hover/definition dead.
+local extended_caps = jdtls.extendedClientCapabilities
+extended_caps.resolveAdditionalTextEditsSupport = true
+
 local config = {
   cmd = { jdtls_cmd, "-data", workspace_dir },
   root_dir = root_dir,
   capabilities = require("cmp_nvim_lsp").default_capabilities(),
+  init_options = {
+    bundles = {},
+    extendedClientCapabilities = extended_caps,
+  },
   settings = {
     java = {
       signatureHelp = { enabled = true },
       contentProvider = { preferred = "fernflower" }, -- decompiler for libs
+      -- Use the project's build tool to resolve the classpath.
+      import = {
+        gradle = { enabled = true, wrapper = { enabled = true } },
+        maven = { enabled = true },
+      },
+      -- Prompt (rather than silently skip) when the build config changes.
+      configuration = { updateBuildConfiguration = "interactive" },
+      -- Surface an incomplete classpath as a warning instead of hard-failing.
+      errors = { incompleteClasspath = { severity = "warning" } },
     },
   },
-  init_options = { bundles = {} },
   -- Keymaps come from the global LspAttach autocmd in lua/user/lsp.lua, so they
   -- apply here automatically -- no on_attach needed.
 }
