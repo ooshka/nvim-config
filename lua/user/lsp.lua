@@ -74,6 +74,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
 
     -- Code navigation (Telescope pickers handle multi-result jumps nicely)
     map("n", "gd", telescope.lsp_definitions,      "Go to definition")
+    map("n", "gD", vim.lsp.buf.declaration,        "Go to declaration")
     map("n", "gr", telescope.lsp_references,       "References")
     map("n", "gi", telescope.lsp_implementations,  "Implementation")
     map("n", "gt", telescope.lsp_type_definitions, "Type definition")
