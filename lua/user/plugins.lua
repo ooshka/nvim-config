@@ -51,7 +51,7 @@ require("lazy").setup({
 
   -- 3. UI niceties
   { "nvim-lualine/lualine.nvim" },     -- statusline
-  { "kyazdani42/nvim-web-devicons" },  -- icons (auto used by many plugins)
+  { "nvim-tree/nvim-web-devicons" },   -- icons (auto used by many plugins)
   { "nvim-telescope/telescope.nvim",   -- fuzzy finder
     dependencies = { "nvim-lua/plenary.nvim" },
   },
@@ -106,15 +106,14 @@ require("lazy").setup({
       require("bufferline").setup {}
     end
   },
-  -- Mini files
+  -- Mini files (lazy: loaded on first require, which the <leader>e map in
+  -- lua/user/keymaps.lua triggers)
   {
     "echasnovski/mini.files",
     version = false,
+    lazy = true,
     config = function()
       require("mini.files").setup()
-      vim.keymap.set("n", "<leader>e", function()
-        require("mini.files").open()
-      end)
     end
   },
   -- Diffview: side-by-side code review (changelist sidebar + diff in main panel).

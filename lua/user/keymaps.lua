@@ -21,9 +21,15 @@ map("n", "gl", "<C-i>", { desc = "Jump forward (newer location)" })
 map("n", "<Tab>", "<cmd>bnext<CR>", { desc = "Next Buffer" })
 map("n", "<S-Tab>", "<cmd>bprevious<CR>", { desc = "Previous Buffer" })
 map("n", "<leader>b", "<cmd>bdelete<CR>", { desc = "Delete Buffer" })
-vim.keymap.set("n", "<leader>r", function()
+map("n", "<leader>r", function()
   vim.cmd("edit!")
 end, { desc = "Reload Buffer" })
+
+-- File explorer (mini.files). The require triggers lazy.nvim to load + setup
+-- the plugin on first use; the spec in plugins.lua is marked lazy accordingly.
+map("n", "<leader>e", function()
+  require("mini.files").open()
+end, { desc = "File explorer (mini.files)" })
 
 -- Clear search highlight
 map("n", "<leader>h", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
@@ -68,12 +74,9 @@ map("n", "<leader>dc", "<cmd>DiffviewClose<cr>", { desc = "Diffview: close" })
 
 local term = require("user.terminal")
 
-vim.keymap.set("n", "<leader>1", term.toggle_float, { desc = "Terminal (float scratch)" })
+map("n", "<leader>1", term.toggle_float, { desc = "Terminal (float scratch)" })
+map("n", "<leader>2", term.toggle_bottom_2, { desc = "Terminal #2 (bottom)" })
+map("n", "<leader>3", term.toggle_bottom_3, { desc = "Terminal #3 (bottom)" })
 
-vim.keymap.set("n", "<leader>2", term.toggle_bottom_2, { desc = "Terminal #2 (bottom)" })
-vim.keymap.set("n", "<leader>3", term.toggle_bottom_3, { desc = "Terminal #3 (bottom)" })
-
-vim.keymap.set("t", "<Esc>", [[<C-\><C-n>]], { desc = "Exit terminal mode" })
-
--- 1) Terminal-mode: Esc just exits terminal insert mode
-vim.keymap.set("t", "<Esc>", [[<C-\><C-n>]], { noremap = true, silent = true, desc = "Exit terminal mode" })
+-- Terminal-mode: Esc just exits terminal insert mode
+map("t", "<Esc>", [[<C-\><C-n>]], { noremap = true, silent = true, desc = "Exit terminal mode" })

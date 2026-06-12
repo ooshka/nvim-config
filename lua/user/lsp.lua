@@ -78,13 +78,15 @@ vim.api.nvim_create_autocmd("LspAttach", {
     map("n", "gr", telescope.lsp_references,       "References")
     map("n", "gi", telescope.lsp_implementations,  "Implementation")
     map("n", "gt", telescope.lsp_type_definitions, "Type definition")
-    map("n", "<leader>ds", telescope.lsp_document_symbols, "Document symbols")
+    map("n", "<leader>cs", telescope.lsp_document_symbols, "Document symbols")
 
-    -- Actions
+    -- Actions (all under the <leader>c "code" namespace so none of these
+    -- buffer-local maps shadow a global prefix -- e.g. <leader>f finders or
+    -- <leader>r reload -- which would stall them by timeoutlen when attached.)
     map("n", "K",  vim.lsp.buf.hover,               "Hover docs")
-    map("n", "<leader>rn", vim.lsp.buf.rename,      "Rename symbol")
+    map("n", "<leader>cr", vim.lsp.buf.rename,      "Rename symbol")
     map("n", "<leader>ca", vim.lsp.buf.code_action, "Code action")
-    map("n", "<leader>f", function()
+    map("n", "<leader>cf", function()
       vim.lsp.buf.format({ async = false })
     end, "Format buffer")
   end,
