@@ -27,12 +27,27 @@ end, { desc = "Reload Buffer" })
 
 -- File explorer (mini.files). The require triggers lazy.nvim to load + setup
 -- the plugin on first use; the spec in plugins.lua is marked lazy accordingly.
+-- <leader>e reveals the current file in its directory; falls back to cwd for
+-- unnamed/scratch buffers. <leader>E always opens at the cwd root.
 map("n", "<leader>e", function()
+  local buf = vim.api.nvim_buf_get_name(0)
+  if buf ~= "" and vim.fn.filereadable(buf) == 1 then
+    require("mini.files").open(buf)
+  else
+    require("mini.files").open()
+  end
+end, { desc = "File explorer at current file" })
+map("n", "<leader>E", function()
   require("mini.files").open()
-end, { desc = "File explorer (mini.files)" })
+end, { desc = "File explorer at cwd" })
 
 -- Clear search highlight
 map("n", "<leader>h", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
+
+-- which-key: show the keymaps active in the current buffer (incl. LSP binds)
+map("n", "<leader>?", function()
+  require("which-key").show({ global = false })
+end, { desc = "Buffer-local keymaps (which-key)" })
 
 -- Diagnostic float (built-in LSP)
 map("n", "gL", vim.diagnostic.open_float, { desc = "Line diagnostics" })

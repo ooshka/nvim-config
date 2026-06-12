@@ -50,6 +50,25 @@ require("lazy").setup({
   },
 
   -- 3. UI niceties
+  -- which-key: popup of available keybinds as you type a prefix. Surfaces our
+  -- <leader> namespaces and makes prefix collisions visible instead of silent.
+  -- Group labels below name the namespaces; the actual binds live in their
+  -- usual files (keymaps.lua, telescope.lua, the LspAttach block in lsp.lua).
+  {
+    "folke/which-key.nvim",
+    event = "VeryLazy",
+    opts = {},
+    config = function(_, opts)
+      local wk = require("which-key")
+      wk.setup(opts)
+      wk.add({
+        { "<leader>c", group = "code (lsp)" },
+        { "<leader>d", group = "diff (diffview)" },
+        { "<leader>f", group = "find (telescope)" },
+        { "<leader>l", group = "diagnostics" },
+      })
+    end,
+  },
   { "nvim-lualine/lualine.nvim" },     -- statusline
   { "nvim-tree/nvim-web-devicons" },   -- icons (auto used by many plugins)
   { "nvim-telescope/telescope.nvim",   -- fuzzy finder
