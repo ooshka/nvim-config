@@ -111,26 +111,29 @@ vim.lsp.config("ruby_lsp", {
 })
 
 -- basedpyright comes from a global npm install (not Mason), so resolve its
--- launcher from PATH and fall back to the npm global bin if it isn't there.
+-- launcher from PATH. The Windows npm fallback is only valid on Windows/WSL;
+-- on Unix an empty command would register a broken language server.
 local basedpyright_cmd = vim.fn.exepath("basedpyright-langserver")
-if basedpyright_cmd == "" then
+if basedpyright_cmd == "" and (vim.fn.has("win32") == 1 or vim.fn.has("wsl") == 1) then
   basedpyright_cmd = vim.fn.expand("$APPDATA/npm/basedpyright-langserver.cmd")
 end
 
-vim.lsp.config("basedpyright", {
-  cmd = { basedpyright_cmd, "--stdio" },
-  settings = {
-    basedpyright = {
-      analysis = {
-        -- basedpyright defaults to the very strict "recommended"; "standard"
-        -- matches pyright's behaviour. Bump to "recommended"/"strict" if wanted.
-        typeCheckingMode = "standard",
-        autoImportCompletions = true,
-        diagnosticMode = "openFilesOnly",
+if basedpyright_cmd ~= "" then
+  vim.lsp.config("basedpyright", {
+    cmd = { basedpyright_cmd, "--stdio" },
+    settings = {
+      basedpyright = {
+        analysis = {
+          -- basedpyright defaults to the very strict "recommended"; "standard"
+          -- matches pyright's behaviour. Bump to "recommended"/"strict" if wanted.
+          typeCheckingMode = "standard",
+          autoImportCompletions = true,
+          diagnosticMode = "openFilesOnly",
+        },
       },
     },
-  },
-})
+  })
+end
 
 -- kotlin_language_server works fine on the bundled defaults.
 
@@ -138,11 +141,12 @@ vim.lsp.config("basedpyright", {
 -- enabling explicitly is harmless and is required for ruby_lsp (not via mason).
 vim.lsp.enable("lua_ls")
 vim.lsp.enable("ruby_lsp")
-vim.lsp.enable("basedpyright")
+if basedpyright_cmd ~= "" then
+  vim.lsp.enable("basedpyright")
+end
 vim.lsp.enable("kotlin_language_server")
 
 -- Java is handled by nvim-jdtls (see ftplugin/java.lua), which starts and
 -- attaches its own client per project. Disable the generic jdtls autostart that
 -- mason-lspconfig would otherwise trigger, to avoid two clients on one buffer.
 vim.lsp.enable("jdtls", false)
-
