@@ -68,6 +68,15 @@ vim.api.nvim_create_autocmd("LspAttach", {
   callback = function(event)
     local bufnr = event.buf
     local telescope = require("telescope.builtin")
+
+    -- kotlin_language_server (fwcd) has a semantic-tokens bug that throws
+    -- "Reached end of file before reaching line N" and spams the LSP log.
+    -- Drop the capability so Neovim never requests semantic tokens from it;
+    -- syntax highlighting falls back to treesitter, which is fine here.
+    local client = vim.lsp.get_client_by_id(event.data.client_id)
+    if client and client.name == "kotlin_language_server" then
+      client.server_capabilities.semanticTokensProvider = nil
+    end
     local map = function(mode, lhs, rhs, desc)
       vim.keymap.set(mode, lhs, rhs, { buffer = bufnr, desc = "LSP: " .. desc })
     end
@@ -150,3 +159,42 @@ vim.lsp.enable("kotlin_language_server")
 -- attaches its own client per project. Disable the generic jdtls autostart that
 -- mason-lspconfig would otherwise trigger, to avoid two clients on one buffer.
 vim.lsp.enable("jdtls", false)
+
+-- Convenience commands. The classic :LspRestart / :LspLog are provided by the
+-- old lspconfig *framework* module (require("lspconfig")), which we don't load
+-- -- we use the native vim.lsp.config/enable API instead. Re-create them here.
+
+-- :LspRestart [name]  -- stop matching clients, then re-attach by reloading the
+-- buffers they were on. With no arg, restarts every active client.
+vim.api.nvim_create_user_command("LspRestart", function(opts)
+  local filter = opts.args ~= "" and { name = opts.args } or nil
+  local clients = vim.lsp.get_clients(filter)
+  if vim.tbl_isempty(clients) then
+    vim.notify("LspRestart: no matching LSP clients", vim.log.levels.WARN)
+    return
+  end
+  local bufs = {}
+  for _, client in ipairs(clients) do
+    for buf in pairs(client.attached_buffers or {}) do
+      bufs[buf] = true
+    end
+    client:stop()
+  end
+  -- Give the servers a moment to exit, then reload each buffer to re-trigger
+  -- filetype detection and the vim.lsp.enable autostart. Skip modified buffers
+  -- (a reload would clobber unsaved changes); those reattach on next write.
+  vim.defer_fn(function()
+    for buf in pairs(bufs) do
+      if vim.api.nvim_buf_is_valid(buf) and not vim.bo[buf].modified then
+        vim.api.nvim_buf_call(buf, function()
+          vim.cmd("edit")
+        end)
+      end
+    end
+  end, 1000)
+end, { nargs = "?", desc = "Restart LSP client(s), optionally by name" })
+
+-- :LspLog  -- open the LSP log file (~/.local/state/nvim/lsp.log)
+vim.api.nvim_create_user_command("LspLog", function()
+  vim.cmd.tabedit(vim.lsp.get_log_path())
+end, { desc = "Open the LSP log file" })

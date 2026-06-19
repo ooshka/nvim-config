@@ -44,6 +44,36 @@ end, { desc = "File explorer at cwd" })
 -- Clear search highlight
 map("n", "<leader>h", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
 
+-- Copy buffer paths to the system clipboard (+ register).
+-- <leader>yn = just the file name; <leader>yp = path from the repo root.
+map("n", "<leader>yn", function()
+  local name = vim.fn.expand("%:t")
+  if name == "" then
+    vim.notify("No file name for this buffer", vim.log.levels.WARN)
+    return
+  end
+  vim.fn.setreg("+", name)
+  vim.notify("Copied: " .. name)
+end, { desc = "Copy file name" })
+
+map("n", "<leader>yp", function()
+  local file = vim.fn.expand("%:p")
+  if file == "" then
+    vim.notify("No file name for this buffer", vim.log.levels.WARN)
+    return
+  end
+  local root = vim.fn.systemlist("git -C " .. vim.fn.fnameescape(vim.fn.expand("%:p:h")) ..
+    " rev-parse --show-toplevel 2>/dev/null")[1]
+  local rel
+  if vim.v.shell_error == 0 and root and root ~= "" then
+    rel = file:sub(#root + 2) -- strip "<root>/"
+  else
+    rel = vim.fn.fnamemodify(file, ":.") -- fall back to cwd-relative
+  end
+  vim.fn.setreg("+", rel)
+  vim.notify("Copied: " .. rel)
+end, { desc = "Copy repo-relative path" })
+
 -- which-key: show the keymaps active in the current buffer (incl. LSP binds)
 map("n", "<leader>?", function()
   require("which-key").show({ global = false })
