@@ -18,9 +18,77 @@ map("n", "gh", "<C-o>", { desc = "Jump back (older location)" })
 map("n", "gl", "<C-i>", { desc = "Jump forward (newer location)" })
 
 -- Buffer swapping
+local function listed_buffers()
+  return vim.tbl_filter(function(buf)
+    return vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buflisted
+  end, vim.api.nvim_list_bufs())
+end
+
+local function close_buffers(bufs)
+  if #bufs == 0 then
+    return
+  end
+
+  local current = vim.api.nvim_get_current_buf()
+  local target = {}
+  for _, buf in ipairs(bufs) do
+    if buf ~= current then
+      target[#target + 1] = buf
+    end
+  end
+
+  if #target == 0 then
+    return
+  end
+
+  local has_modified = false
+  for _, buf in ipairs(target) do
+    if vim.bo[buf].modified then
+      has_modified = true
+      break
+    end
+  end
+
+  local cmd = has_modified and "confirm bdelete" or "bdelete"
+  for _, buf in ipairs(target) do
+    vim.cmd(string.format("%s %d", cmd, buf))
+  end
+
+  if vim.api.nvim_buf_is_valid(current) and vim.bo[current].buflisted then
+    return
+  end
+
+  for _, buf in ipairs(listed_buffers()) do
+    if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buflisted then
+      vim.api.nvim_set_current_buf(buf)
+      return
+    end
+  end
+
+  vim.cmd("enew")
+end
+
+local function close_all_buffers()
+  close_buffers(listed_buffers())
+end
+
+local function close_other_buffers()
+  local current = vim.api.nvim_get_current_buf()
+  local bufs = listed_buffers()
+  local others = {}
+  for _, buf in ipairs(bufs) do
+    if buf ~= current then
+      others[#others + 1] = buf
+    end
+  end
+  close_buffers(others)
+end
+
 map("n", "<Tab>", "<cmd>bnext<CR>", { desc = "Next Buffer" })
 map("n", "<S-Tab>", "<cmd>bprevious<CR>", { desc = "Previous Buffer" })
-map("n", "<leader>b", "<cmd>bdelete<CR>", { desc = "Delete Buffer" })
+map("n", "<leader>bd", "<cmd>bdelete<CR>", { desc = "Delete Buffer" })
+map("n", "<leader>bo", close_other_buffers, { desc = "Delete Other Buffers" })
+map("n", "<leader>bD", close_all_buffers, { desc = "Delete All Buffers" })
 map("n", "<leader>r", function()
   vim.cmd("edit!")
 end, { desc = "Reload Buffer" })

@@ -62,6 +62,7 @@ require("lazy").setup({
       local wk = require("which-key")
       wk.setup(opts)
       wk.add({
+        { "<leader>b", group = "buffers" },
         { "<leader>c", group = "code (lsp)" },
         { "<leader>d", group = "diff (diffview)" },
         { "<leader>f", group = "find (telescope)" },
@@ -170,4 +171,3 @@ require("lazy").setup({
     end
   },
 })
-
