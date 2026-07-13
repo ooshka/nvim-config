@@ -144,7 +144,13 @@ if basedpyright_cmd ~= "" then
   })
 end
 
--- kotlin_language_server works fine on the bundled defaults.
+vim.lsp.config("kotlin_language_server", {
+  init_options = {
+    -- Keep KLS cache state out of project roots and force init_options to be a
+    -- JSON object; the server has crashed when it receives an empty array.
+    storagePath = vim.fn.stdpath("cache") .. "/kotlin-language-server",
+  },
+})
 
 -- Enable servers. mason-lspconfig v2 auto-enables the mason-managed ones, but
 -- enabling explicitly is harmless and is required for ruby_lsp (not via mason).
