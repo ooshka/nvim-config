@@ -112,6 +112,9 @@ end, { desc = "File explorer at cwd" })
 -- Clear search highlight
 map("n", "<leader>h", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
 
+-- Delete without replacing the default register.
+map({ "n", "x" }, "<leader>x", [["_d]], { desc = "Delete to black hole register" })
+
 -- Copy buffer paths to the system clipboard (+ register).
 -- <leader>yn = just the file name; <leader>yp = path from the repo root.
 map("n", "<leader>yn", function()
