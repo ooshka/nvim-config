@@ -21,6 +21,14 @@ if jdtls_cmd == "" then
   return
 end
 
+local java_cmd_env = require("user.java").cmd_env("jdtls", {
+  min_major = 17,
+  max_major = 21,
+})
+if not java_cmd_env then
+  return
+end
+
 -- Project root: prefer build-tool / VCS markers, fall back to cwd.
 local root_markers = {
   "gradlew",
@@ -49,6 +57,7 @@ extended_caps.resolveAdditionalTextEditsSupport = true
 
 local config = {
   cmd = { jdtls_cmd, "-data", workspace_dir },
+  cmd_env = java_cmd_env,
   root_dir = root_dir,
   capabilities = require("cmp_nvim_lsp").default_capabilities(),
   init_options = {

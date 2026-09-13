@@ -14,8 +14,9 @@ opt.fileformats = { "unix", "dos" }
 
 -- Tabs / indent
 opt.expandtab = true       -- use spaces instead of tabs
-opt.shiftwidth = 2         -- indent size
-opt.tabstop = 2            -- how wide a TAB feels
+opt.shiftwidth = 4         -- indent size
+opt.tabstop = 4            -- how wide a TAB feels
+opt.softtabstop = 4        -- spaces inserted when pressing TAB
 opt.smartindent = true
 
 -- Search

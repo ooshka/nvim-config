@@ -123,11 +123,13 @@ vim.lsp.config("ruby_lsp", {
 -- launcher from PATH. The Windows npm fallback is only valid on Windows/WSL;
 -- on Unix an empty command would register a broken language server.
 local basedpyright_cmd = vim.fn.exepath("basedpyright-langserver")
-if basedpyright_cmd == "" and (vim.fn.has("win32") == 1 or vim.fn.has("wsl") == 1) then
-  basedpyright_cmd = vim.fn.expand("$APPDATA/npm/basedpyright-langserver.cmd")
+local appdata = vim.env.APPDATA
+if basedpyright_cmd == "" and appdata and appdata ~= "" and (vim.fn.has("win32") == 1 or vim.fn.has("wsl") == 1) then
+  basedpyright_cmd = appdata .. "/npm/basedpyright-langserver.cmd"
 end
 
-if basedpyright_cmd ~= "" then
+local basedpyright_enabled = basedpyright_cmd ~= "" and vim.fn.executable(basedpyright_cmd) == 1
+if basedpyright_enabled then
   vim.lsp.config("basedpyright", {
     cmd = { basedpyright_cmd, "--stdio" },
     settings = {
@@ -144,7 +146,31 @@ if basedpyright_cmd ~= "" then
   })
 end
 
+local kotlin_cmd_env = require("user.java").cmd_env("kotlin_language_server", {
+  min_major = 17,
+  max_major = 21,
+})
+if kotlin_cmd_env then
+  -- KLS injects a Gradle task for Kotlin DSL classpath discovery that is not
+  -- configuration-cache compatible. Keep the project setting intact for normal
+  -- Gradle commands, but disable it for the language server's Gradle imports.
+  local gradle_opts = "-Dorg.gradle.configuration-cache=false"
+  if vim.env.GRADLE_OPTS and vim.env.GRADLE_OPTS ~= "" then
+    gradle_opts = vim.env.GRADLE_OPTS .. " " .. gradle_opts
+  end
+  kotlin_cmd_env.GRADLE_OPTS = gradle_opts
+end
+
 vim.lsp.config("kotlin_language_server", {
+  cmd_env = kotlin_cmd_env,
+  root_markers = {
+    "settings.gradle",
+    "settings.gradle.kts",
+    "build.gradle",
+    "build.gradle.kts",
+    "pom.xml",
+    ".git",
+  },
   init_options = {
     -- Keep KLS cache state out of project roots and force init_options to be a
     -- JSON object; the server has crashed when it receives an empty array.
@@ -156,10 +182,10 @@ vim.lsp.config("kotlin_language_server", {
 -- enabling explicitly is harmless and is required for ruby_lsp (not via mason).
 vim.lsp.enable("lua_ls")
 vim.lsp.enable("ruby_lsp")
-if basedpyright_cmd ~= "" then
+if basedpyright_enabled then
   vim.lsp.enable("basedpyright")
 end
-vim.lsp.enable("kotlin_language_server")
+vim.lsp.enable("kotlin_language_server", kotlin_cmd_env ~= nil)
 
 -- Java is handled by nvim-jdtls (see ftplugin/java.lua), which starts and
 -- attaches its own client per project. Disable the generic jdtls autostart that
