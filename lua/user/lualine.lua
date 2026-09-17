@@ -2,15 +2,17 @@
 -- from the moment it reports a token until that token reports done.
 local busy_clients = {}
 
-vim.api.nvim_create_autocmd("LspProgress", function(args)
-  local client_id = args.data.client_id
-  local done = args.data.params.value.kind == "end"
-  if done then
-    busy_clients[client_id] = nil
-  else
-    busy_clients[client_id] = true
-  end
-end)
+vim.api.nvim_create_autocmd("LspProgress", {
+  callback = function(args)
+    local client_id = args.data.client_id
+    local done = args.data.params.value.kind == "end"
+    if done then
+      busy_clients[client_id] = nil
+    else
+      busy_clients[client_id] = true
+    end
+  end,
+})
 
 local function lsp_status_color()
   local clients = vim.lsp.get_clients({ bufnr = 0 })
