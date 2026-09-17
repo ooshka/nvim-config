@@ -116,7 +116,8 @@ map("n", "<leader>h", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
 map({ "n", "x" }, "<leader>x", [["_d]], { desc = "Delete to black hole register" })
 
 -- Copy buffer paths to the system clipboard (+ register).
--- <leader>yn = just the file name; <leader>yp = path from the repo root.
+-- <leader>yn = just the file name; <leader>yp = path from the repo root;
+-- <leader>ya = absolute path.
 map("n", "<leader>yn", function()
   local name = vim.fn.expand("%:t")
   if name == "" then
@@ -144,6 +145,16 @@ map("n", "<leader>yp", function()
   vim.fn.setreg("+", rel)
   vim.notify("Copied: " .. rel)
 end, { desc = "Copy repo-relative path" })
+
+map("n", "<leader>ya", function()
+  local file = vim.fn.expand("%:p")
+  if file == "" then
+    vim.notify("No file name for this buffer", vim.log.levels.WARN)
+    return
+  end
+  vim.fn.setreg("+", file)
+  vim.notify("Copied: " .. file)
+end, { desc = "Copy absolute path" })
 
 -- which-key: show the keymaps active in the current buffer (incl. LSP binds)
 map("n", "<leader>?", function()
