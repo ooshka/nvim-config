@@ -45,7 +45,8 @@ require("lazy").setup({
   -- 2. Treesitter (better syntax highlighting & text objects)
   {
     "nvim-treesitter/nvim-treesitter",
-    branch = "master", -- classic, stable API (the `main` branch is a different, fast-moving rewrite)
+    branch = "main",
+    lazy = false,
     build = ":TSUpdate",
   },
 
