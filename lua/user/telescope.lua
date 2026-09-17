@@ -16,4 +16,5 @@ end, { desc = "Live grep (all, no ignore)" })
 vim.keymap.set("n", "<leader>fb", builtin.buffers,    { desc = "Buffers" })
 vim.keymap.set("n", "<leader>ft", builtin.help_tags,  { desc = "Help tags" })
 vim.keymap.set("n", "<leader>fk", builtin.keymaps,    { desc = "Keymaps" })
+vim.keymap.set("n", "<leader>fr", builtin.resume,     { desc = "Resume last picker" })
 
