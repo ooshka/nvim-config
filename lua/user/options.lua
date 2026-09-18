@@ -10,6 +10,15 @@ wo.relativenumber = true  -- relative line numbers
 wo.cursorline = true      -- highlight current line
 o.scrolloff = 4           -- keep 4 lines visible above/below cursor
 o.signcolumn = "yes"
+
+-- Set explicitly rather than relying on the default: smear-cursor.nvim appends
+-- its hide entry to this option, and can only strip that entry again when there
+-- is already a preceding entry to separate it from.
+opt.guicursor = {
+  "n-v-c-sm:block-blinkwait500-blinkon500-blinkoff500",
+  "i-ci-ve:ver25-blinkwait500-blinkon500-blinkoff500",
+  "r-cr-o:hor20-blinkwait500-blinkon500-blinkoff500",
+}
 opt.fileformats = { "unix", "dos" }
 
 -- Tabs / indent

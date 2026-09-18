@@ -102,9 +102,12 @@ require("lazy").setup({
     opts = {
       smear_between_neighbor_lines = true,
       smear_insert_mode = true,
-      -- optional tuning:
       stiffness = 0.8,
       damping = 0.95,
+      -- Mask the target cursor by drawing over it instead of blanking
+      -- 'guicursor'; a smear that ends early then cannot leave the real cursor
+      -- invisible.
+      hide_target_hack = true,
     },
   },
   -- Terminal access
