@@ -1,5 +1,7 @@
--- Attached clients report progress via LspProgress; a server counts as busy
--- from the moment it reports a token until that token reports done.
+-- A server counts as busy from the moment it reports an LspProgress token
+-- until that token reports done. Not every server reports progress, so the
+-- color function also treats any client with an outstanding unanswered
+-- request as busy.
 local busy_clients = {}
 
 vim.api.nvim_create_autocmd("LspProgress", {
@@ -20,7 +22,7 @@ local function lsp_status_color()
     return { fg = "#e06c75" } -- red: no client attached
   end
   for _, client in ipairs(clients) do
-    if busy_clients[client.id] then
+    if busy_clients[client.id] or not vim.tbl_isempty(client.requests) then
       return { fg = "#e5c07b" } -- yellow: attached, work in progress
     end
   end
