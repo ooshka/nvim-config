@@ -64,7 +64,7 @@ require("lazy").setup({
       wk.setup(opts)
       wk.add({
         { "<leader>b", group = "buffers" },
-        { "<leader>c", group = "code (lsp)" },
+        { "<leader>c", group = "code (lsp + git)" },
         { "<leader>d", group = "diff (diffview)" },
         { "<leader>f", group = "find (telescope)" },
         { "<leader>l", group = "diagnostics" },
@@ -136,6 +136,27 @@ require("lazy").setup({
     config = function()
       require("mini.files").setup()
     end
+  },
+  -- Git gutter markers and change previews while editing.
+  {
+    "lewis6991/gitsigns.nvim",
+    event = { "BufReadPre", "BufNewFile" },
+    opts = {
+      signs = {
+        add = { text = "┃" },
+        change = { text = "┃" },
+      },
+      preview_config = { border = "rounded" },
+      on_attach = function(bufnr)
+        local gs = require("gitsigns")
+        local function map(lhs, rhs, desc)
+          vim.keymap.set("n", lhs, rhs, { buffer = bufnr, desc = desc })
+        end
+        map("<leader>cn", function() gs.nav_hunk("next") end, "Next Git hunk")
+        map("<leader>cp", function() gs.nav_hunk("prev") end, "Previous Git hunk")
+        map("<leader>ch", gs.preview_hunk, "Preview Git hunk")
+      end,
+    },
   },
   -- Diffview: side-by-side code review (changelist sidebar + diff in main panel).
   -- Keymaps live in lua/user/keymaps.lua (<leader>d*). Lazy-loaded on its commands.
