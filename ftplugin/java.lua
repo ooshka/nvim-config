@@ -56,7 +56,12 @@ local extended_caps = jdtls.extendedClientCapabilities
 extended_caps.resolveAdditionalTextEditsSupport = true
 
 local config = {
-  cmd = { jdtls_cmd, "-data", workspace_dir },
+  cmd = {
+    jdtls_cmd,
+    "--jvm-arg=-Djava.import.generatesMetadataFilesAtProjectRoot=false",
+    "-data",
+    workspace_dir,
+  },
   cmd_env = java_cmd_env,
   root_dir = root_dir,
   capabilities = require("cmp_nvim_lsp").default_capabilities(),
