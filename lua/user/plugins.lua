@@ -49,6 +49,13 @@ require("lazy").setup({
     lazy = false,
     build = ":TSUpdate",
   },
+  {
+    "MeanderingProgrammer/render-markdown.nvim",
+    ft = "markdown",
+    cmd = "RenderMarkdown",
+    dependencies = { "nvim-treesitter/nvim-treesitter", "nvim-tree/nvim-web-devicons" },
+    opts = {},
+  },
 
   -- 3. UI niceties
   -- which-key: popup of available keybinds as you type a prefix. Surfaces our

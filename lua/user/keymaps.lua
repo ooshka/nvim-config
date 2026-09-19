@@ -93,6 +93,9 @@ map("n", "<leader>r", function()
   vim.cmd("edit!")
 end, { desc = "Reload Buffer" })
 
+-- Toggle rendered Markdown for the current buffer; insert mode shows source.
+map("n", "<leader>p", "<cmd>RenderMarkdown buf_toggle<cr>", { desc = "Toggle Markdown preview" })
+
 -- File explorer (mini.files). The require triggers lazy.nvim to load + setup
 -- the plugin on first use; the spec in plugins.lua is marked lazy accordingly.
 -- <leader>e reveals the current file in its directory; falls back to cwd for
