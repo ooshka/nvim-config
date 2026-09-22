@@ -4,6 +4,7 @@ vim.g.mapleader = " " -- <Space> is leader
 
 require("user.options")
 require("user.plugins") -- sets up plugin manager + plugins
+require("user.autosave").setup()
 require("user.treesitter")
 require("user.lsp")
 require("user.lualine")

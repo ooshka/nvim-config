@@ -29,13 +29,26 @@ local function lsp_status_color()
   return { fg = "#98c379" } -- green: attached, idle
 end
 
+local function autosave_status()
+  if require("user.autosave").is_enabled(0) then
+    return ""
+  end
+
+  return ""
+end
+
 require("lualine").setup({
   options = {
     theme = "auto",
     icons_enabled = true,
   },
   sections = {
-    lualine_x = { { function() return "●" end, color = lsp_status_color }, "encoding", "fileformat", "filetype" },
+    lualine_x = {
+      { autosave_status, color = { fg = "#98c379" } },
+      { function() return "●" end, color = lsp_status_color },
+      "encoding",
+      "fileformat",
+      "filetype",
+    },
   },
 })
-
