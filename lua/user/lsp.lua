@@ -10,6 +10,7 @@ require("mason-lspconfig").setup({
     "jdtls",                  -- Java (launched/managed by nvim-jdtls, not enabled here)
     "kotlin_language_server", -- Kotlin
     "groovyls",               -- Groovy
+    "terraformls",            -- Terraform / OpenTofu
     -- Python: basedpyright is installed globally via npm (`npm i -g basedpyright`),
     -- not Mason -- its PyPI package is unreachable behind the corporate mirror.
   },
@@ -115,6 +116,17 @@ vim.lsp.config("lua_ls", {
   },
 })
 
+-- terraform-ls shells out to the `terraform` binary for init/validate data, so
+-- it only reaches full functionality when one is on PATH.
+vim.lsp.config("terraformls", {
+  root_markers = { ".terraform", ".terraform.lock.hcl", ".git" },
+  settings = {
+    terraform = {
+      validation = { enableEnhancedValidation = true },
+    },
+  },
+})
+
 vim.lsp.config("ruby_lsp", {
   cmd = { "bundle", "exec", "ruby-lsp" },
   root_markers = { "Gemfile", ".git", ".ruby-version" },
@@ -183,6 +195,7 @@ vim.lsp.config("kotlin_language_server", {
 -- enabling explicitly is harmless and is required for ruby_lsp (not via mason).
 vim.lsp.enable("lua_ls")
 vim.lsp.enable("ruby_lsp")
+vim.lsp.enable("terraformls")
 if basedpyright_enabled then
   vim.lsp.enable("basedpyright")
 end
