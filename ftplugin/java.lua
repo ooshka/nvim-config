@@ -71,6 +71,9 @@ local config = {
   },
   settings = {
     java = {
+      -- Let Gradle own compilation output. Jdtls/Buildship otherwise compiles
+      -- imported projects into bin/main and bin/test inside the repository.
+      autobuild = { enabled = false },
       signatureHelp = { enabled = true },
       contentProvider = { preferred = "fernflower" }, -- decompiler for libs
       -- Use the project's build tool to resolve the classpath.

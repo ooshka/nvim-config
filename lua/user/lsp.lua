@@ -9,6 +9,7 @@ require("mason-lspconfig").setup({
     "lua_ls",                 -- Lua
     "jdtls",                  -- Java (launched/managed by nvim-jdtls, not enabled here)
     "kotlin_language_server", -- Kotlin
+    "groovyls",               -- Groovy
     -- Python: basedpyright is installed globally via npm (`npm i -g basedpyright`),
     -- not Mason -- its PyPI package is unreachable behind the corporate mirror.
   },
