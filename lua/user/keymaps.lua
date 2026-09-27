@@ -184,7 +184,7 @@ map("n", "<leader>ld", function ()
   end, { desc = "Prompt diagnostic lint" }
 )
 
--- Diffview (side-by-side review against a base ref) --
+-- CodeDiff (side-by-side review and history) --
 
 -- origin/HEAD resolves to e.g. "origin/main"; fall back to local main/master.
 local function default_base()
@@ -195,21 +195,28 @@ local function default_base()
   return "main"
 end
 
--- triple-dot: show what HEAD changed since its merge-base with <base>.
-local function diffview_open(base)
-  vim.cmd("DiffviewOpen " .. base .. "...HEAD")
+local function codediff(args)
+  vim.api.nvim_cmd({ cmd = "CodeDiff", args = args }, {})
 end
 
-map("n", "<leader>dd", function() diffview_open(default_base()) end,
-  { desc = "Diffview: review vs default branch" })
+-- Triple-dot: show what HEAD changed since its merge-base with <base>.
+local function review_against(base)
+  codediff({ base .. "...HEAD" })
+end
+
+map("n", "<leader>dd", function() review_against(default_base()) end,
+  { desc = "CodeDiff: review vs default branch" })
+map("n", "<leader>dl", function() codediff({ "HEAD" }) end,
+  { desc = "CodeDiff: local changes vs HEAD" })
 map("n", "<leader>dD", function()
   vim.ui.input({ prompt = "Diff against ref: ", default = default_base() }, function(ref)
-    if ref and ref ~= "" then diffview_open(ref) end
+    if ref and ref ~= "" then review_against(ref) end
   end)
-end, { desc = "Diffview: review vs ref…" })
-map("n", "<leader>dh", "<cmd>DiffviewFileHistory<cr>", { desc = "Diffview: branch file history" })
-map("n", "<leader>df", "<cmd>DiffviewFileHistory %<cr>", { desc = "Diffview: current file history" })
-map("n", "<leader>dc", "<cmd>DiffviewClose<cr>", { desc = "Diffview: close" })
+end, { desc = "CodeDiff: review vs ref…" })
+map("n", "<leader>dh", function() codediff({ "history" }) end,
+  { desc = "CodeDiff: repository history" })
+map("n", "<leader>df", function() codediff({ "history", "%" }) end,
+  { desc = "CodeDiff: current file history" })
 
 -- Terminal --
 

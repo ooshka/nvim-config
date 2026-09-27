@@ -71,8 +71,8 @@ require("lazy").setup({
       wk.setup(opts)
       wk.add({
         { "<leader>b", group = "buffers" },
-        { "<leader>c", group = "code (lsp + git)" },
-        { "<leader>d", group = "diff (diffview)" },
+        { "<leader>c", group = "code (lsp)" },
+        { "<leader>d", group = "diff (CodeDiff + Gitsigns)" },
         { "<leader>f", group = "find (telescope)" },
         { "<leader>l", group = "diagnostics" },
       })
@@ -162,44 +162,28 @@ require("lazy").setup({
         local function map(lhs, rhs, desc)
           vim.keymap.set("n", lhs, rhs, { buffer = bufnr, desc = desc })
         end
-        map("<leader>cn", function() gs.nav_hunk("next") end, "Next Git hunk")
-        map("<leader>cp", function() gs.nav_hunk("prev") end, "Previous Git hunk")
-        map("<leader>ch", gs.preview_hunk, "Preview Git hunk")
+        map("<leader>dn", function() gs.nav_hunk("next") end, "Next Git hunk")
+        map("<leader>dp", function() gs.nav_hunk("prev") end, "Previous Git hunk")
+        map("<leader>dv", gs.preview_hunk, "Preview Git hunk")
       end,
     },
   },
-  -- Diffview: side-by-side code review (changelist sidebar + diff in main panel).
+  -- CodeDiff: side-by-side code review (changelist sidebar + diff in main panel).
   -- Keymaps live in lua/user/keymaps.lua (<leader>d*). Lazy-loaded on its commands.
   {
-    "sindrets/diffview.nvim",
-    dependencies = { "nvim-lua/plenary.nvim" },
-    cmd = {
-      "DiffviewOpen", "DiffviewClose", "DiffviewToggleFiles",
-      "DiffviewFocusFiles", "DiffviewFileHistory", "DiffviewRefresh",
-    },
-    config = function()
-      local actions = require("diffview.actions")
-      -- Diffview's defaults shadow our global <leader>b (close buffer) and
-      -- <leader>e (mini.files) with its file-panel toggle/focus. Move those onto
-      -- the <leader>d diff namespace, and make the bare <leader>b/<leader>e a
-      -- no-op *inside* diffview so the reflex isn't hijacked (and so it doesn't
-      -- fall through to bdelete on diffview's special buffers). Outside diffview
-      -- — including files opened with `gf` — the globals are untouched.
-      local panel_keys = {
-        { "n", "<leader>b",  function() end,        { desc = "(no-op in Diffview — use <leader>dt)" } },
-        { "n", "<leader>e",  function() end,        { desc = "(no-op in Diffview — use <leader>de)" } },
-        { "n", "<leader>dt", actions.toggle_files,  { desc = "Diffview: toggle file panel" } },
-        { "n", "<leader>de", actions.focus_files,   { desc = "Diffview: focus file panel" } },
-      }
-      require("diffview").setup({
-        enhanced_diff_hl = true,          -- richer intra-line (word-level) highlighting
-        -- Default layout is diff2_horizontal = side-by-side, which is what we want.
-        keymaps = {
-          view = panel_keys,
-          file_panel = panel_keys,
-          file_history_panel = panel_keys,
+    "esmuellert/codediff.nvim",
+    cmd = "CodeDiff",
+    opts = {
+      diff = {
+        layout = "side-by-side",
+      },
+      keymaps = {
+        view = {
+          quit = { "q", "<leader>dc" },
+          toggle_explorer = "<leader>dt",
+          focus_explorer = "<leader>de",
         },
-      })
-    end
+      },
+    },
   },
 })
