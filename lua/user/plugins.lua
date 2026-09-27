@@ -166,7 +166,6 @@ require("lazy").setup({
         map("<leader>dp", function() gs.nav_hunk("prev") end, "Previous Git hunk")
         map("<leader>dv", gs.preview_hunk, "Preview Git hunk")
         map("<leader>db", function() gs.blame_line({ full = true }) end, "Blame current line")
-        map("<leader>dB", gs.toggle_current_line_blame, "Toggle inline Git blame")
       end,
     },
   },
