@@ -217,6 +217,14 @@ map("n", "<leader>dh", function() codediff({ "history" }) end,
   { desc = "CodeDiff: repository history" })
 map("n", "<leader>df", function() codediff({ "history", "%" }) end,
   { desc = "CodeDiff: current file history" })
+map("x", "<leader>df", function()
+  local first = vim.fn.line("v")
+  local last = vim.fn.line(".")
+  if first > last then
+    first, last = last, first
+  end
+  vim.api.nvim_cmd({ cmd = "CodeDiff", args = { "history" }, range = { first, last } }, {})
+end, { desc = "CodeDiff: selected-line history" })
 
 -- Terminal --
 
