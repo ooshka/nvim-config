@@ -48,6 +48,12 @@ require("lazy").setup({
     branch = "main",
     lazy = false,
     build = ":TSUpdate",
+    dependencies = {
+      {
+        "nvim-treesitter/nvim-treesitter-textobjects",
+        branch = "main",
+      },
+    },
   },
   {
     "MeanderingProgrammer/render-markdown.nvim",
@@ -146,6 +152,13 @@ require("lazy").setup({
     config = function()
       require("mini.files").setup()
     end
+  },
+  -- Add, delete, and replace surrounding quotes, brackets, and tags.
+  {
+    "nvim-mini/mini.surround",
+    version = false,
+    event = "VeryLazy",
+    opts = {},
   },
   -- Git gutter markers and change previews while editing.
   {

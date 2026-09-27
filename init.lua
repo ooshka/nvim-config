@@ -6,6 +6,7 @@ require("user.options")
 require("user.plugins") -- sets up plugin manager + plugins
 require("user.autosave").setup()
 require("user.treesitter")
+require("user.textobjects")
 require("user.lsp")
 require("user.lualine")
 require("user.telescope")
