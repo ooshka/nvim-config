@@ -156,6 +156,18 @@ if basedpyright_enabled then
         },
       },
     },
+    -- Point at a project-local venv's interpreter when one exists, so
+    -- basedpyright resolves imports/stubs against the same environment the
+    -- project actually runs with instead of whatever Python is on PATH.
+    on_new_config = function(new_config, root_dir)
+      for _, venv_name in ipairs({ ".venv", "venv" }) do
+        local python = root_dir .. "/" .. venv_name .. "/bin/python"
+        if vim.fn.executable(python) == 1 then
+          new_config.settings.python = { pythonPath = python }
+          return
+        end
+      end
+    end,
   })
 end
 
