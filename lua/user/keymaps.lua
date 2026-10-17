@@ -233,6 +233,10 @@ local term = require("user.terminal")
 map("n", "<leader>1", term.toggle_float, { desc = "Terminal (float scratch)" })
 map("n", "<leader>2", term.toggle_bottom_2, { desc = "Terminal #2 (bottom)" })
 map("n", "<leader>3", term.toggle_bottom_3, { desc = "Terminal #3 (bottom)" })
+map("n", "<leader>aa", term.toggle_quick_agent, { desc = "Quick agent: toggle" })
+map("n", "<leader>aA", term.fresh_quick_agent, { desc = "Quick agent: fresh session" })
+map("n", "<leader>ac", function() term.copy_context(false) end, { desc = "Quick agent: copy context and toggle" })
+map("x", "<leader>ac", function() term.copy_context(true) end, { desc = "Quick agent: copy selection and toggle" })
 
 -- Terminal-mode: Esc just exits terminal insert mode
 map("t", "<Esc>", [[<C-\><C-n>]], { noremap = true, silent = true, desc = "Exit terminal mode" })
