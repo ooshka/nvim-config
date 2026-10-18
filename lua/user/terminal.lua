@@ -26,7 +26,7 @@ local bottom_term_3 = Terminal:new({
 local quick_agents = {
   claude = {
     command = "claude",
-    args = { "--model", "haiku", "--permission-mode", "plan" },
+    args = { "--model", "claude-haiku-4-5", "--permission-mode", "default", "--disallowedTools", "Edit Write NotebookEdit" },
   },
   codex = {
     command = "codex",
