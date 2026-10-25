@@ -5,6 +5,9 @@ local opt = vim.opt  -- more ergonomic for list-like options
 
 -- UI / editing
 o.termguicolors = true
+-- Keep true-color syntax highlighting while allowing the terminal palette to
+-- provide the editor's base foreground and background.
+vim.api.nvim_set_hl(0, "Normal", { fg = "NONE", bg = "NONE" })
 wo.number = true          -- line numbers
 wo.relativenumber = true  -- relative line numbers
 wo.cursorline = true      -- highlight current line

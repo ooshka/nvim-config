@@ -90,16 +90,8 @@ require("lazy").setup({
     dependencies = { "nvim-lua/plenary.nvim" },
   },
 
-  -- 4. Colorscheme   
-  { 
-    "catppuccin/nvim",
-    name = "catppuccin",
-    priority = 1000,
-    config = function ()
-    	vim.cmd.colorscheme("catppuccin-mocha")
-    end
-  },
-    -- Smooth window scroll
+  -- 4. UI behavior
+  -- Smooth window scroll
   {
     "karb94/neoscroll.nvim",
     opts = {

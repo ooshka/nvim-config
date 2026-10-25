@@ -3,6 +3,24 @@
 -- color function also treats any client with an outstanding unanswered
 -- request as busy.
 local busy_clients = {}
+local nova = require("user.theme")
+
+local lualine_theme = {
+  normal = {
+    a = { fg = nova.background, bg = nova.blue, gui = "bold" },
+    b = { fg = nova.foreground, bg = nova.selection },
+    c = { fg = nova.foreground, bg = nova.background },
+  },
+  insert = { a = { fg = nova.background, bg = nova.green, gui = "bold" } },
+  visual = { a = { fg = nova.background, bg = nova.purple, gui = "bold" } },
+  replace = { a = { fg = nova.background, bg = nova.red, gui = "bold" } },
+  command = { a = { fg = nova.background, bg = nova.yellow, gui = "bold" } },
+  inactive = {
+    a = { fg = nova.foreground, bg = nova.background },
+    b = { fg = nova.foreground, bg = nova.background },
+    c = { fg = nova.foreground, bg = nova.background },
+  },
+}
 
 vim.api.nvim_create_autocmd("LspProgress", {
   callback = function(args)
@@ -19,14 +37,14 @@ vim.api.nvim_create_autocmd("LspProgress", {
 local function lsp_status_color()
   local clients = vim.lsp.get_clients({ bufnr = 0 })
   if vim.tbl_isempty(clients) then
-    return { fg = "#e06c75" } -- red: no client attached
+    return { fg = nova.red } -- no client attached
   end
   for _, client in ipairs(clients) do
     if busy_clients[client.id] or not vim.tbl_isempty(client.requests) then
-      return { fg = "#e5c07b" } -- yellow: attached, work in progress
+      return { fg = nova.yellow } -- attached, work in progress
     end
   end
-  return { fg = "#98c379" } -- green: attached, idle
+  return { fg = nova.green } -- attached, idle
 end
 
 local function autosave_status()
@@ -39,12 +57,12 @@ end
 
 require("lualine").setup({
   options = {
-    theme = "auto",
+    theme = lualine_theme,
     icons_enabled = true,
   },
   sections = {
     lualine_x = {
-      { autosave_status, color = { fg = "#98c379" } },
+      { autosave_status, color = { fg = nova.green } },
       { function() return "●" end, color = lsp_status_color },
       "encoding",
       "fileformat",
