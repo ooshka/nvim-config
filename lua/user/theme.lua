@@ -1,7 +1,7 @@
 -- Palette entrypoint. Keep this table aligned with theme-lab/themes/nova.json;
 -- the highlight mapping below is destination-specific and remains stable.
 local nova = {
-  background = "#141824", foreground = "#C8D0E0", cursor = "#80C8E0",
+  background = "#1A1F2D", foreground = "#C8D0E0", cursor = "#80C8E0",
   selection = "#283247", black = "#111521", red = "#B86068",
   green = "#58AD9E", yellow = "#C8A860", blue = "#6F9FC8",
   purple = "#B0A0D8", cyan = "#78B8B0", white = "#9AA4B8",
