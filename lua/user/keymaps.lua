@@ -150,57 +150,64 @@ map("n", "<leader>h", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
 -- Delete without replacing the default register.
 map({ "n", "x" }, "<leader>x", [["_d]], { desc = "Delete to black hole register" })
 
--- Copy buffer paths to the system clipboard (+ register).
+-- Copy paths to the system clipboard (+ register).
 -- <leader>yn = just the file name; <leader>yp = path from the repo root;
 -- <leader>ya = absolute path; <leader>yl = file name and cursor line.
-map("n", "<leader>yn", function()
-  local name = vim.fn.expand("%:t")
-  if name == "" then
-    vim.notify("No file name for this buffer", vim.log.levels.WARN)
-    return
-  end
-  vim.fn.setreg("+", name)
-  vim.notify("Copied: " .. name)
-end, { desc = "Copy file name" })
+-- In a mini.files explorer these act on the entry under the cursor.
+local function in_explorer()
+  return vim.bo.filetype == "minifiles"
+end
 
-map("n", "<leader>yp", function()
-  local file = vim.fn.expand("%:p")
-  if file == "" then
-    vim.notify("No file name for this buffer", vim.log.levels.WARN)
-    return
+local function current_path()
+  if in_explorer() then
+    local entry = require("mini.files").get_fs_entry()
+    return entry and entry.path or ""
   end
-  local root = vim.fn.systemlist("git -C " .. vim.fn.fnameescape(vim.fn.expand("%:p:h")) ..
-    " rev-parse --show-toplevel 2>/dev/null")[1]
-  local rel
-  if vim.v.shell_error == 0 and root and root ~= "" then
-    rel = file:sub(#root + 2) -- strip "<root>/"
-  else
-    rel = vim.fn.fnamemodify(file, ":.") -- fall back to cwd-relative
-  end
-  vim.fn.setreg("+", rel)
-  vim.notify("Copied: " .. rel)
-end, { desc = "Copy repo-relative path" })
+  return vim.fn.expand("%:p")
+end
 
-map("n", "<leader>ya", function()
-  local file = vim.fn.expand("%:p")
-  if file == "" then
-    vim.notify("No file name for this buffer", vim.log.levels.WARN)
-    return
-  end
-  vim.fn.setreg("+", file)
-  vim.notify("Copied: " .. file)
-end, { desc = "Copy absolute path" })
-
-map("n", "<leader>yl", function()
-  local name = vim.fn.expand("%:t")
-  if name == "" then
-    vim.notify("No file name for this buffer", vim.log.levels.WARN)
-    return
-  end
-  local text = name .. ":" .. vim.fn.line(".")
+local function copy(text)
   vim.fn.setreg("+", text)
   vim.notify("Copied: " .. text)
-end, { desc = "Copy file name:line" })
+end
+
+local function with_path(fn)
+  return function()
+    local path = current_path()
+    if path == "" then
+      vim.notify("No file name for this buffer", vim.log.levels.WARN)
+      return
+    end
+    fn(path)
+  end
+end
+
+map("n", "<leader>yn", with_path(function(path)
+  copy(vim.fn.fnamemodify(path, ":t"))
+end), { desc = "Copy file name" })
+
+map("n", "<leader>yp", with_path(function(path)
+  local dir = vim.fn.isdirectory(path) == 1 and path or vim.fn.fnamemodify(path, ":h")
+  local root = vim.fn.systemlist("git -C " .. vim.fn.shellescape(dir) ..
+    " rev-parse --show-toplevel 2>/dev/null")[1]
+  if vim.v.shell_error == 0 and root and root ~= "" and path ~= root then
+    copy(path:sub(#root + 2)) -- strip "<root>/"
+  else
+    copy(vim.fn.fnamemodify(path, ":.")) -- fall back to cwd-relative
+  end
+end), { desc = "Copy repo-relative path" })
+
+map("n", "<leader>ya", with_path(copy), { desc = "Copy absolute path" })
+
+map("n", "<leader>yl", with_path(function(path)
+  local name = vim.fn.fnamemodify(path, ":t")
+  if in_explorer() then
+    -- Explorer line numbers are list positions, not file lines.
+    copy(name)
+  else
+    copy(name .. ":" .. vim.fn.line("."))
+  end
+end), { desc = "Copy file name:line" })
 
 -- which-key: show the keymaps active in the current buffer (incl. LSP binds)
 map("n", "<leader>?", function()
