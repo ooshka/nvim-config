@@ -206,6 +206,7 @@ vim.lsp.config("kotlin_language_server", {
 -- Enable servers. mason-lspconfig v2 auto-enables the mason-managed ones, but
 -- enabling explicitly is harmless and is required for ruby_lsp (not via mason).
 vim.lsp.enable("lua_ls")
+vim.lsp.enable("gdscript")
 vim.lsp.enable("ruby_lsp")
 vim.lsp.enable("terraformls")
 if basedpyright_enabled then
