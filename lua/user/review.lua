@@ -491,7 +491,13 @@ local function show_preview(lines)
   })
 end
 
+-- With a preview already open (from ]r, ]q or a previous call), moves focus
+-- into it so it can be scrolled; `q` inside closes it.
 function M.preview()
+  if preview.win and vim.api.nvim_win_is_valid(preview.win) then
+    vim.api.nvim_set_current_win(preview.win)
+    return
+  end
   local root, rel = current_location()
   if not root then return end
   local hits = at_line(visible_for(root, rel), vim.fn.line("."))
