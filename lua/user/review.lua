@@ -457,21 +457,12 @@ function M.delete()
   pick(hits, "Delete review comment", function(e) delete_entry(root, e.id) end)
 end
 
-function M.preview()
-  local root, rel = current_location()
-  if not root then return end
-  local hits = at_line(visible_for(root, rel), vim.fn.line("."))
-  if #hits == 0 then
-    vim.notify("No review comment on this line")
-    return
-  end
-  local lines = {}
-  for i, e in ipairs(hits) do
-    if i > 1 then vim.list_extend(lines, { "", "---", "" }) end
-    table.insert(lines, string.format("**%s** · `%s:%s`", e.source, rel, range_text(e)))
-    table.insert(lines, "")
-    vim.list_extend(lines, e.body)
-  end
+local function preview_lines(e, source)
+  local lines = { string.format("**%s** · `%s:%s`", source, e.path, range_text(e)), "" }
+  return vim.list_extend(lines, e.body)
+end
+
+local function show_preview(lines)
   -- The preview closes on a real cursor move away from where it opened. The
   -- built-in CursorMoved close event is not used because a jump that precedes
   -- the preview fires CursorMoved after the float is already open.
@@ -498,6 +489,22 @@ function M.preview()
       end
     end,
   })
+end
+
+function M.preview()
+  local root, rel = current_location()
+  if not root then return end
+  local hits = at_line(visible_for(root, rel), vim.fn.line("."))
+  if #hits == 0 then
+    vim.notify("No review comment on this line")
+    return
+  end
+  local lines = {}
+  for i, e in ipairs(hits) do
+    if i > 1 then vim.list_extend(lines, { "", "---", "" }) end
+    vim.list_extend(lines, preview_lines(e, e.source))
+  end
+  show_preview(lines)
 end
 
 -- direction: 1 for next, -1 for previous. Wraps around the file and previews
@@ -535,8 +542,9 @@ function M.jump(direction)
 end
 
 -- Fills the quickfix list from a review file (defaults to this repo's
--- triage.md when present, otherwise dev_review.md). Any markdown file using the same header format works, so an
--- agent's review can be loaded for comparison.
+-- triage.md when present, otherwise dev_review.md). Any markdown file using
+-- the same header format works. Each item carries its comment so that
+-- stepping through the list can preview it. Focus stays in the current window.
 function M.quickfix(file)
   local root
   if file and file ~= "" then
@@ -550,17 +558,42 @@ function M.quickfix(file)
     vim.notify("No review file found", vim.log.levels.WARN)
     return
   end
+  local source = vim.fn.fnamemodify(file, ":t:r")
   local items = {}
   for _, e in ipairs(parse(vim.fn.readfile(file)).entries) do
     table.insert(items, {
       filename = root .. "/" .. e.path,
       lnum = e.first,
       end_lnum = e.last,
-      text = e.body[1] or "",
+      text = (e.orphaned and "[orphaned] " or "") .. (e.body[1] or ""),
+      user_data = { review_preview = preview_lines(e, source) },
     })
   end
   vim.fn.setqflist({}, " ", { title = "Review: " .. vim.fn.fnamemodify(file, ":~:."), items = items })
   vim.cmd("copen")
+  vim.cmd("wincmd p")
+end
+
+function M.quickfix_agent()
+  local root = git_root(vim.api.nvim_buf_get_name(0))
+  M.quickfix(root and (root .. "/" .. REVIEW_DIR .. "/agent_review.md") or nil)
+end
+
+-- Runs a quickfix motion (:cnext etc.) and previews the landed-on item when
+-- it came from a review list.
+function M.qf_step(cmd)
+  close_preview()
+  local ok, err = pcall(vim.cmd, vim.v.count1 .. cmd)
+  if not ok then
+    vim.notify((tostring(err):gsub("^.-:E", "E")), vim.log.levels.WARN)
+    return
+  end
+  local qf = vim.fn.getqflist({ idx = 0, items = 0 })
+  local item = qf.items[qf.idx]
+  local data = item and item.user_data
+  if type(data) == "table" and data.review_preview then
+    show_preview(data.review_preview)
+  end
 end
 
 function M.open_review_file()
@@ -651,7 +684,10 @@ function M.setup()
   map("x", "<leader>mc", M.comment_range, { desc = "Review: comment selection" })
   map("n", "<leader>md", M.delete, { desc = "Review: delete comment" })
   map("n", "<leader>mk", M.preview, { desc = "Review: preview comment" })
-  map("n", "<leader>ml", M.quickfix, { desc = "Review: comments to quickfix" })
+  map("n", "<leader>ml", function() M.quickfix() end, { desc = "Review: comments to quickfix" })
+  map("n", "<leader>ma", M.quickfix_agent, { desc = "Review: agent findings to quickfix" })
+  map("n", "]q", function() M.qf_step("cnext") end, { desc = "Next quickfix item" })
+  map("n", "[q", function() M.qf_step("cprevious") end, { desc = "Previous quickfix item" })
   map("n", "<leader>mo", M.open_review_file, { desc = "Review: open review file" })
   map("n", "]r", function() M.jump(1) end, { desc = "Next review comment" })
   map("n", "[r", function() M.jump(-1) end, { desc = "Previous review comment" })
