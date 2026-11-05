@@ -1,26 +1,36 @@
 -- lua/user/review.lua
 --
--- Inline PR review notes. Comments live in <repo>/pr_review/dev_review.md as
--- entries of the form:
+-- Inline PR review notes. Your comments live in <repo>/pr_review/dev_review.md
+-- as entries of the form:
 --
 --   ## path/from/repo/root.lua:42-48
 --   <!-- review-id: 1a2b3c sha: 990f9ab -->
 --
 --   Comment body (markdown).
 --
--- The header is `gF`-compatible and is the only anchor, so other tools (or an
--- agent writing its own review in the same format) interoperate with the
--- parser. The review file is the single source of truth: signs, navigation and
--- the quickfix list are all derived from it on demand.
+-- The header is `gF`-compatible and is the only anchor; the metadata line is
+-- optional. Every other pr_review/*.md file using the same headers is treated
+-- as an agent review: its comments get distinct signs and appear in previews
+-- and navigation, but are never edited from here. The review files are the
+-- single source of truth: signs, navigation and the quickfix list are all
+-- derived from them on demand.
 
 local M = {}
 
-local REVIEW_REL = "pr_review/dev_review.md"
+local REVIEW_DIR = "pr_review"
+local REVIEW_REL = REVIEW_DIR .. "/dev_review.md"
 local ns = vim.api.nvim_create_namespace("user_review")
 local flash_ns = vim.api.nvim_create_namespace("user_review_flash")
 
 vim.api.nvim_set_hl(0, "ReviewSign", { link = "DiagnosticInfo", default = true })
 vim.api.nvim_set_hl(0, "ReviewRange", { link = "NonText", default = true })
+vim.api.nvim_set_hl(0, "ReviewAgentSign", { link = "DiagnosticHint", default = true })
+vim.api.nvim_set_hl(0, "ReviewAgentRange", { link = "NonText", default = true })
+
+local SIGNS = {
+  dev = { icon = "\u{f075}", hl = "ReviewSign", range_hl = "ReviewRange", priority = 20 },
+  agent = { icon = "\u{f06a9}", hl = "ReviewAgentSign", range_hl = "ReviewAgentRange", priority = 19 },
+}
 
 -- Paths and git ------------------------------------------------------------
 
@@ -33,7 +43,7 @@ local function review_file(root)
 end
 
 -- Returns root and repo-relative path for a buffer, or nil for buffers that
--- are not files inside a git repository (or are the review file itself).
+-- are not files inside a git repository (or are review files themselves).
 local function buf_location(buf)
   local name = vim.api.nvim_buf_get_name(buf)
   if name == "" or vim.bo[buf].buftype ~= "" then
@@ -46,7 +56,7 @@ local function buf_location(buf)
   end
   root = vim.fs.normalize(root)
   local rel = name:sub(#root + 2)
-  if rel == REVIEW_REL then
+  if vim.startswith(rel, REVIEW_DIR .. "/") then
     return nil
   end
   return root, rel
@@ -71,7 +81,9 @@ end
 
 local function new_id(entries)
   local taken = {}
-  for _, e in ipairs(entries) do taken[e.id] = true end
+  for _, e in ipairs(entries) do
+    if e.id then taken[e.id] = true end
+  end
   local id
   repeat
     id = string.format("%06x", (vim.uv.hrtime() + math.random(0, 0xffffff)) % 0x1000000)
@@ -113,8 +125,7 @@ local function parse(lines)
   return doc
 end
 
-local function load(root)
-  local file = review_file(root)
+local function load_file(file)
   local stat = vim.uv.fs_stat(file)
   if not stat then
     return { preamble = { "# Dev review", "" }, entries = {} }
@@ -126,6 +137,10 @@ local function load(root)
   local doc = parse(vim.fn.readfile(file))
   cache[file] = { mtime = stat.mtime.sec, nsec = stat.mtime.nsec, size = stat.size, doc = doc }
   return doc
+end
+
+local function load(root)
+  return load_file(review_file(root))
 end
 
 local function range_text(e)
@@ -153,18 +168,28 @@ local function save(root, doc)
   end
 end
 
+-- Entries for `rel` from every review file, each tagged with `kind`
+-- ("dev" or "agent") and `source` (the review file's name without extension).
 local function entries_for(root, rel)
   local list = {}
-  for _, e in ipairs(load(root).entries) do
-    if e.path == rel then table.insert(list, e) end
+  local dev = review_file(root)
+  for _, file in ipairs(vim.fn.glob(root .. "/" .. REVIEW_DIR .. "/*.md", true, true)) do
+    file = vim.fs.normalize(file)
+    local kind = file == dev and "dev" or "agent"
+    local source = vim.fn.fnamemodify(file, ":t:r")
+    for _, e in ipairs(load_file(file).entries) do
+      if e.path == rel then
+        table.insert(list, vim.tbl_extend("force", e, { kind = kind, source = source }))
+      end
+    end
   end
   table.sort(list, function(a, b) return a.first < b.first end)
   return list
 end
 
-local function entries_at(root, rel, lnum)
+local function entries_at(root, rel, lnum, kind)
   return vim.tbl_filter(function(e)
-    return e.first <= lnum and lnum <= e.last
+    return e.first <= lnum and lnum <= e.last and (not kind or e.kind == kind)
   end, entries_for(root, rel))
 end
 
@@ -178,11 +203,12 @@ function M.refresh(buf)
   if not root then return end
   local count = vim.api.nvim_buf_line_count(buf)
   for _, e in ipairs(entries_for(root, rel)) do
+    local sign = SIGNS[e.kind]
     for l = e.first, math.min(e.last, count) do
       vim.api.nvim_buf_set_extmark(buf, ns, l - 1, 0, {
-        sign_text = l == e.first and "\u{f075}" or "│",
-        sign_hl_group = l == e.first and "ReviewSign" or "ReviewRange",
-        priority = 20,
+        sign_text = l == e.first and sign.icon or "│",
+        sign_hl_group = l == e.first and sign.hl or sign.range_hl,
+        priority = sign.priority,
       })
     end
   end
@@ -318,6 +344,15 @@ local function open_editor(target)
   end
 end
 
+local preview = { win = nil, src_win = nil }
+
+local function close_preview()
+  if preview.win and vim.api.nvim_win_is_valid(preview.win) then
+    vim.api.nvim_win_close(preview.win, true)
+  end
+  preview.win = nil
+end
+
 local function pick(entries, prompt, cb)
   if #entries == 1 then return cb(entries[1]) end
   vim.ui.select(entries, {
@@ -338,13 +373,13 @@ local function current_location()
   return root, rel
 end
 
--- Normal mode: edit the comment(s) covering the cursor line, or start a new
--- comment on that line.
+-- Normal mode: edit your comment(s) covering the cursor line, or start a new
+-- comment on that line. Agent comments are left alone.
 function M.comment_line()
   local root, rel = current_location()
   if not root then return end
   local lnum = vim.fn.line(".")
-  local hits = entries_at(root, rel, lnum)
+  local hits = entries_at(root, rel, lnum, "dev")
   if #hits == 0 then
     return open_editor({ root = root, path = rel, first = lnum, last = lnum })
   end
@@ -366,9 +401,9 @@ end
 function M.delete()
   local root, rel = current_location()
   if not root then return end
-  local hits = entries_at(root, rel, vim.fn.line("."))
+  local hits = entries_at(root, rel, vim.fn.line("."), "dev")
   if #hits == 0 then
-    vim.notify("No review comment on this line")
+    vim.notify("No review comment of yours on this line")
     return
   end
   pick(hits, "Delete review comment", function(e) delete_entry(root, e.id) end)
@@ -385,21 +420,24 @@ function M.preview()
   local lines = {}
   for i, e in ipairs(hits) do
     if i > 1 then vim.list_extend(lines, { "", "---", "" }) end
-    table.insert(lines, string.format("**%s:%s**", rel, range_text(e)))
+    table.insert(lines, string.format("**%s** · `%s:%s`", e.source, rel, range_text(e)))
     table.insert(lines, "")
     vim.list_extend(lines, e.body)
   end
   -- The preview closes on a real cursor move away from where it opened. The
   -- built-in CursorMoved close event is not used because a jump that precedes
   -- the preview fires CursorMoved after the float is already open.
+  close_preview()
   local src = vim.api.nvim_get_current_buf()
   local pos = vim.api.nvim_win_get_cursor(0)
+  preview.src_win = vim.api.nvim_get_current_win()
   local _, pwin = vim.lsp.util.open_floating_preview(lines, "markdown", {
     border = "rounded",
     max_width = 90,
     focus_id = "user_review",
     close_events = { "InsertEnter", "BufHidden" },
   })
+  preview.win = pwin
   vim.api.nvim_create_autocmd("CursorMoved", {
     buffer = src,
     callback = function()
@@ -417,6 +455,12 @@ end
 -- direction: 1 for next, -1 for previous. Wraps around the file and previews
 -- the comment landed on.
 function M.jump(direction)
+  -- From inside a focused preview, jump relative to the window it belongs to.
+  if preview.win and vim.api.nvim_get_current_win() == preview.win
+    and preview.src_win and vim.api.nvim_win_is_valid(preview.src_win) then
+    vim.api.nvim_set_current_win(preview.src_win)
+  end
+  close_preview()
   local root, rel = buf_location(0)
   if not root then return end
   local list = entries_for(root, rel)
@@ -577,7 +621,7 @@ function M.setup()
   })
   vim.api.nvim_create_autocmd("BufWritePost", {
     group = group,
-    pattern = "*/" .. REVIEW_REL,
+    pattern = "*/" .. REVIEW_DIR .. "/*.md",
     callback = refresh_all,
   })
   vim.api.nvim_create_autocmd("FileType", {

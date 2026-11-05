@@ -70,6 +70,8 @@ local highlights = {
   GitSignsDelete = { fg = nova.red },
   ReviewSign = { fg = nova.bright_purple, bold = true },
   ReviewRange = { fg = nova.purple },
+  ReviewAgentSign = { fg = nova.bright_cyan, bold = true },
+  ReviewAgentRange = { fg = nova.cyan },
   MiniFilesDirectory = { fg = nova.blue },
 }
 for name, value in pairs(highlights) do set(0, name, value) end
