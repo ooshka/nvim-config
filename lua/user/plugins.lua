@@ -81,6 +81,7 @@ require("lazy").setup({
         { "<leader>d", group = "diff (CodeDiff + Gitsigns)" },
         { "<leader>f", group = "find (telescope)" },
         { "<leader>l", group = "diagnostics" },
+        { "<leader>m", group = "review comments" },
       })
     end,
   },

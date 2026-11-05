@@ -12,7 +12,7 @@ wo.number = true          -- line numbers
 wo.relativenumber = true  -- relative line numbers
 wo.cursorline = true      -- highlight current line
 o.scrolloff = 4           -- keep 4 lines visible above/below cursor
-o.signcolumn = "yes"
+o.signcolumn = "yes:2"      -- room for git and review signs side by side
 
 -- Set explicitly rather than relying on the default: smear-cursor.nvim appends
 -- its hide entry to this option, and can only strip that entry again when there
