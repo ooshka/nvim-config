@@ -4,16 +4,22 @@
 -- as entries of the form:
 --
 --   ## path/from/repo/root.lua:42-48
---   <!-- review-id: 1a2b3c sha: 990f9ab -->
+--   <!-- review-id: 1a2b3c sha: 990f9ab snippet: local x = compute() -->
 --
 --   Comment body (markdown).
 --
 -- The header is `gF`-compatible and is the only anchor; the metadata line is
--- optional. Every other pr_review/*.md file using the same headers is treated
--- as an agent review: its comments get distinct signs and appear in previews
--- and navigation, but are never edited from here. The review files are the
--- single source of truth: signs, navigation and the quickfix list are all
--- derived from them on demand.
+-- optional, may carry extra fields, and always ends with `snippet` (the first
+-- non-blank line of the range, used by the /pr-drift skill to re-anchor).
+--
+-- Other files in pr_review/ share the format:
+--   triage.md      merged dev + agent comments; once present, it is the only
+--                  source shown in the gutter. Entries with a `!` line are
+--                  flagged for sending.
+--   outgoing.md    author-facing drafts; never shown.
+--   anything else  agent reviews.
+-- Only dev_review.md is edited from here. Entries with `status: orphaned` have
+-- no valid location and get no signs.
 
 local M = {}
 
@@ -26,11 +32,18 @@ vim.api.nvim_set_hl(0, "ReviewSign", { link = "DiagnosticInfo", default = true }
 vim.api.nvim_set_hl(0, "ReviewRange", { link = "NonText", default = true })
 vim.api.nvim_set_hl(0, "ReviewAgentSign", { link = "DiagnosticHint", default = true })
 vim.api.nvim_set_hl(0, "ReviewAgentRange", { link = "NonText", default = true })
+vim.api.nvim_set_hl(0, "ReviewTriageSign", { link = "DiagnosticInfo", default = true })
+vim.api.nvim_set_hl(0, "ReviewTriageRange", { link = "NonText", default = true })
+vim.api.nvim_set_hl(0, "ReviewFlagSign", { link = "DiagnosticWarn", default = true })
 
 local SIGNS = {
   dev = { icon = "\u{f075}", hl = "ReviewSign", range_hl = "ReviewRange", priority = 20 },
   agent = { icon = "\u{f06a9}", hl = "ReviewAgentSign", range_hl = "ReviewAgentRange", priority = 19 },
+  triage = { icon = "\u{f0ae}", hl = "ReviewTriageSign", range_hl = "ReviewTriageRange", priority = 20 },
+  flagged = { icon = "\u{f024}", hl = "ReviewFlagSign", range_hl = "ReviewTriageRange", priority = 21 },
 }
+
+local FILE_KINDS = { dev_review = "dev", triage = "triage", outgoing = false }
 
 -- Paths and git ------------------------------------------------------------
 
@@ -60,6 +73,10 @@ local function buf_location(buf)
     return nil
   end
   return root, rel
+end
+
+local function triage_file(root)
+  return root .. "/" .. REVIEW_DIR .. "/triage.md"
 end
 
 local function head_sha(root)
@@ -111,7 +128,9 @@ local function parse(lines)
     elseif current and #current.body == 0 and not current.id and line:match(META) then
       local id, rest = line:match(META)
       current.id = id
+      current.meta = vim.trim(rest)
       current.sha = rest:match("sha: (%w+)")
+      current.orphaned = rest:find("status: orphaned", 1, true) ~= nil
     elseif current then
       table.insert(current.body, line)
     else
@@ -121,6 +140,8 @@ local function parse(lines)
   for _, e in ipairs(doc.entries) do
     e.body = trim_blank_edges(e.body)
     e.id = e.id or new_id(doc.entries)
+    e.meta = e.meta or ""
+    e.flagged = vim.iter(e.body):any(function(l) return l == "!" or vim.startswith(l, "! ") end)
   end
   return doc
 end
@@ -152,7 +173,7 @@ local function save(root, doc)
   if #out > 0 then table.insert(out, "") end
   for _, e in ipairs(doc.entries) do
     table.insert(out, string.format("## %s:%s", e.path, range_text(e)))
-    table.insert(out, string.format("<!-- review-id: %s%s -->", e.id, e.sha and (" sha: " .. e.sha) or ""))
+    table.insert(out, string.format("<!-- review-id: %s%s -->", e.id, e.meta ~= "" and (" " .. e.meta) or ""))
     table.insert(out, "")
     vim.list_extend(out, e.body)
     table.insert(out, "")
@@ -168,16 +189,15 @@ local function save(root, doc)
   end
 end
 
--- Entries for `rel` from every review file, each tagged with `kind`
--- ("dev" or "agent") and `source` (the review file's name without extension).
+-- Entries for `rel` from every review file, each tagged with `kind` ("dev",
+-- "agent" or "triage") and `source` (the review file's name without extension).
 local function entries_for(root, rel)
   local list = {}
-  local dev = review_file(root)
   for _, file in ipairs(vim.fn.glob(root .. "/" .. REVIEW_DIR .. "/*.md", true, true)) do
-    file = vim.fs.normalize(file)
-    local kind = file == dev and "dev" or "agent"
     local source = vim.fn.fnamemodify(file, ":t:r")
-    for _, e in ipairs(load_file(file).entries) do
+    local kind = FILE_KINDS[source]
+    if kind == nil then kind = "agent" end
+    for _, e in ipairs(kind and load_file(file).entries or {}) do
       if e.path == rel then
         table.insert(list, vim.tbl_extend("force", e, { kind = kind, source = source }))
       end
@@ -187,10 +207,23 @@ local function entries_for(root, rel)
   return list
 end
 
-local function entries_at(root, rel, lnum, kind)
+-- Entries shown in the gutter, previews and navigation: triage alone once it
+-- exists, otherwise the dev and agent reviews. Orphaned entries are excluded.
+local function visible_for(root, rel)
+  local triage = vim.uv.fs_stat(triage_file(root)) ~= nil
   return vim.tbl_filter(function(e)
-    return e.first <= lnum and lnum <= e.last and (not kind or e.kind == kind)
+    return not e.orphaned and (e.kind == "triage") == triage
   end, entries_for(root, rel))
+end
+
+local function at_line(entries, lnum)
+  return vim.tbl_filter(function(e)
+    return e.first <= lnum and lnum <= e.last
+  end, entries)
+end
+
+local function dev_entries_at(root, rel, lnum)
+  return at_line(vim.tbl_filter(function(e) return e.kind == "dev" end, entries_for(root, rel)), lnum)
 end
 
 -- Signs ----------------------------------------------------------------------
@@ -202,8 +235,8 @@ function M.refresh(buf)
   local root, rel = buf_location(buf)
   if not root then return end
   local count = vim.api.nvim_buf_line_count(buf)
-  for _, e in ipairs(entries_for(root, rel)) do
-    local sign = SIGNS[e.kind]
+  for _, e in ipairs(visible_for(root, rel)) do
+    local sign = SIGNS[e.flagged and e.kind == "triage" and "flagged" or e.kind]
     for l = e.first, math.min(e.last, count) do
       vim.api.nvim_buf_set_extmark(buf, ns, l - 1, 0, {
         sign_text = l == e.first and sign.icon or "│",
@@ -307,12 +340,16 @@ local function open_editor(target)
           path = target.path,
           first = target.first,
           last = target.last,
-          sha = head_sha(target.root),
+          meta = string.format("sha: %s snippet: %s", head_sha(target.root) or "unknown", target.snippet or ""),
           body = body,
         })
       end
       save(target.root, doc)
-      vim.notify("Review comment saved")
+      if vim.uv.fs_stat(triage_file(target.root)) then
+        vim.notify("Review comment saved to dev_review.md; run /pr-triage to merge it into triage")
+      else
+        vim.notify("Review comment saved")
+      end
     end
     vim.bo[buf].modified = false
     refresh_all()
@@ -365,6 +402,17 @@ local function pick(entries, prompt, cb)
   end)
 end
 
+-- First non-blank line of the range, normalised as the metadata `snippet`.
+local function snippet(first, last)
+  for _, line in ipairs(vim.api.nvim_buf_get_lines(0, first - 1, last, false)) do
+    local text = vim.trim(line)
+    if text ~= "" then
+      return (vim.fn.strcharpart(text, 0, 80):gsub("%-%-", "- -"))
+    end
+  end
+  return ""
+end
+
 local function current_location()
   local root, rel = buf_location(0)
   if not root then
@@ -379,9 +427,9 @@ function M.comment_line()
   local root, rel = current_location()
   if not root then return end
   local lnum = vim.fn.line(".")
-  local hits = entries_at(root, rel, lnum, "dev")
+  local hits = dev_entries_at(root, rel, lnum)
   if #hits == 0 then
-    return open_editor({ root = root, path = rel, first = lnum, last = lnum })
+    return open_editor({ root = root, path = rel, first = lnum, last = lnum, snippet = snippet(lnum, lnum) })
   end
   pick(hits, "Edit review comment", function(e)
     open_editor({ root = root, path = rel, first = e.first, last = e.last, id = e.id })
@@ -395,13 +443,13 @@ function M.comment_range()
   if first > last then first, last = last, first end
   vim.cmd("normal! \27")
   if not root then return end
-  open_editor({ root = root, path = rel, first = first, last = last })
+  open_editor({ root = root, path = rel, first = first, last = last, snippet = snippet(first, last) })
 end
 
 function M.delete()
   local root, rel = current_location()
   if not root then return end
-  local hits = entries_at(root, rel, vim.fn.line("."), "dev")
+  local hits = dev_entries_at(root, rel, vim.fn.line("."))
   if #hits == 0 then
     vim.notify("No review comment of yours on this line")
     return
@@ -412,7 +460,7 @@ end
 function M.preview()
   local root, rel = current_location()
   if not root then return end
-  local hits = entries_at(root, rel, vim.fn.line("."))
+  local hits = at_line(visible_for(root, rel), vim.fn.line("."))
   if #hits == 0 then
     vim.notify("No review comment on this line")
     return
@@ -463,7 +511,7 @@ function M.jump(direction)
   close_preview()
   local root, rel = buf_location(0)
   if not root then return end
-  local list = entries_for(root, rel)
+  local list = visible_for(root, rel)
   if #list == 0 then
     vim.notify("No review comments in this file")
     return
@@ -487,7 +535,7 @@ function M.jump(direction)
 end
 
 -- Fills the quickfix list from a review file (defaults to this repo's
--- dev_review.md). Any markdown file using the same header format works, so an
+-- triage.md when present, otherwise dev_review.md). Any markdown file using the same header format works, so an
 -- agent's review can be loaded for comparison.
 function M.quickfix(file)
   local root
@@ -496,7 +544,7 @@ function M.quickfix(file)
     root = git_root(file)
   else
     root = git_root(vim.api.nvim_buf_get_name(0))
-    file = root and review_file(root)
+    file = root and (vim.uv.fs_stat(triage_file(root)) and triage_file(root) or review_file(root))
   end
   if not root or vim.fn.filereadable(file) == 0 then
     vim.notify("No review file found", vim.log.levels.WARN)
@@ -611,7 +659,7 @@ function M.setup()
   vim.api.nvim_create_user_command("ReviewList", function(opts) M.quickfix(opts.args) end, {
     nargs = "?",
     complete = "file",
-    desc = "Load review comments (default: pr_review/dev_review.md) into quickfix",
+    desc = "Load review comments (default: triage.md, else dev_review.md) into quickfix",
   })
 
   local group = vim.api.nvim_create_augroup("user_review", { clear = true })
