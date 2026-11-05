@@ -180,7 +180,7 @@ function M.refresh(buf)
   for _, e in ipairs(entries_for(root, rel)) do
     for l = e.first, math.min(e.last, count) do
       vim.api.nvim_buf_set_extmark(buf, ns, l - 1, 0, {
-        sign_text = l == e.first and "" or "│",
+        sign_text = l == e.first and "\u{f075}" or "│",
         sign_hl_group = l == e.first and "ReviewSign" or "ReviewRange",
         priority = 20,
       })
@@ -202,9 +202,23 @@ local function close_float(win)
   end
 end
 
+-- Deletes the entry with `id` from the review file.
+local function delete_entry(root, id)
+  local doc = load(root)
+  for i, e in ipairs(doc.entries) do
+    if e.id == id then
+      table.remove(doc.entries, i)
+      save(root, doc)
+      refresh_all()
+      vim.notify("Review comment deleted")
+      return
+    end
+  end
+end
+
 -- Opens an editor float for `target` ({ root, path, first, last, id? }).
--- `:w` writes the entry into the review file; writing an empty buffer deletes
--- the entry.
+-- Closing the float or `:w` writes the entry into the review file; an empty
+-- body removes the entry.
 local function open_editor(target)
   local existing
   if target.id then
@@ -240,7 +254,7 @@ local function open_editor(target)
     border = "rounded",
     title = string.format(" %s:%s ", target.path, range_text(target)),
     title_pos = "center",
-    footer = " :w save · q close · empty + :w deletes ",
+    footer = " q/<Esc> save & close · <leader>md delete ",
     footer_pos = "center",
   })
   vim.wo[win].wrap = true
@@ -257,11 +271,7 @@ local function open_editor(target)
         if id and e.id == id then idx = i end
       end
       if #body == 0 then
-        if idx then
-          table.remove(doc.entries, idx)
-          save(target.root, doc)
-          vim.notify("Review comment deleted")
-        end
+        if idx then delete_entry(target.root, id) end
         id = nil
       else
         if idx then
@@ -285,19 +295,18 @@ local function open_editor(target)
     end,
   })
 
-  local function quit()
-    if vim.bo[buf].modified then
-      local choice = vim.fn.confirm("Save review comment?", "&Save\n&Discard\n&Cancel", 1)
-      if choice == 1 then
-        vim.cmd("write")
-      elseif choice ~= 2 then
-        return
-      end
-    end
+  local function save_and_close()
+    if vim.bo[buf].modified then vim.cmd("write") end
     close_float(win)
   end
-  vim.keymap.set("n", "q", quit, { buffer = buf, desc = "Close review comment" })
-  vim.keymap.set("n", "<Esc>", quit, { buffer = buf, desc = "Close review comment" })
+  local function delete_and_close()
+    if id then delete_entry(target.root, id) end
+    vim.bo[buf].modified = false
+    close_float(win)
+  end
+  vim.keymap.set("n", "q", save_and_close, { buffer = buf, desc = "Save and close review comment" })
+  vim.keymap.set("n", "<Esc>", save_and_close, { buffer = buf, desc = "Save and close review comment" })
+  vim.keymap.set("n", "<leader>md", delete_and_close, { buffer = buf, desc = "Delete review comment" })
 
   if not existing then
     vim.cmd("startinsert")
@@ -349,6 +358,17 @@ function M.comment_range()
   open_editor({ root = root, path = rel, first = first, last = last })
 end
 
+function M.delete()
+  local root, rel = current_location()
+  if not root then return end
+  local hits = entries_at(root, rel, vim.fn.line("."))
+  if #hits == 0 then
+    vim.notify("No review comment on this line")
+    return
+  end
+  pick(hits, "Delete review comment", function(e) delete_entry(root, e.id) end)
+end
+
 function M.preview()
   local root, rel = current_location()
   if not root then return end
@@ -364,10 +384,11 @@ function M.preview()
     table.insert(lines, "")
     vim.list_extend(lines, e.body)
   end
-  vim.lsp.util.open_floating_preview(lines, "markdown", { border = "rounded", max_width = 90 })
+  vim.lsp.util.open_floating_preview(lines, "markdown", { border = "rounded", max_width = 90, focus_id = "user_review" })
 end
 
--- direction: 1 for next, -1 for previous. Wraps around the file.
+-- direction: 1 for next, -1 for previous. Wraps around the file and previews
+-- the comment landed on.
 function M.jump(direction)
   local root, rel = buf_location(0)
   if not root then return end
@@ -391,6 +412,7 @@ function M.jump(direction)
   end
   vim.cmd("normal! m'")
   vim.api.nvim_win_set_cursor(0, { target.first, 0 })
+  M.preview()
 end
 
 -- Fills the quickfix list from a review file (defaults to this repo's
@@ -508,6 +530,7 @@ function M.setup()
   local map = vim.keymap.set
   map("n", "<leader>mc", M.comment_line, { desc = "Review: comment line / edit existing" })
   map("x", "<leader>mc", M.comment_range, { desc = "Review: comment selection" })
+  map("n", "<leader>md", M.delete, { desc = "Review: delete comment" })
   map("n", "<leader>mk", M.preview, { desc = "Review: preview comment" })
   map("n", "<leader>ml", M.quickfix, { desc = "Review: comments to quickfix" })
   map("n", "<leader>mo", M.open_review_file, { desc = "Review: open review file" })
