@@ -72,8 +72,6 @@ local highlights = {
   ReviewRange = { fg = nova.purple },
   ReviewAgentSign = { fg = nova.bright_cyan, bold = true },
   ReviewAgentRange = { fg = nova.cyan },
-  ReviewTriageSign = { fg = nova.bright_blue, bold = true },
-  ReviewTriageRange = { fg = nova.blue },
   ReviewFlagSign = { fg = nova.bright_yellow, bold = true },
   MiniFilesDirectory = { fg = nova.blue },
 }
