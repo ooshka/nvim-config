@@ -261,42 +261,40 @@ local function open_editor(target)
   vim.wo[win].linebreak = true
 
   local id = target.id
-  vim.api.nvim_create_autocmd("BufWriteCmd", {
-    buffer = buf,
-    callback = function()
-      local body = trim_blank_edges(vim.api.nvim_buf_get_lines(buf, 0, -1, false))
-      local doc = load(target.root)
-      local idx
-      for i, e in ipairs(doc.entries) do
-        if id and e.id == id then idx = i end
-      end
-      if #body == 0 then
-        if idx then delete_entry(target.root, id) end
-        id = nil
+  local function commit()
+    local body = trim_blank_edges(vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+    local doc = load(target.root)
+    local idx
+    for i, e in ipairs(doc.entries) do
+      if id and e.id == id then idx = i end
+    end
+    if #body == 0 then
+      if idx then delete_entry(target.root, id) end
+      id = nil
+    else
+      if idx then
+        doc.entries[idx].body = body
       else
-        if idx then
-          doc.entries[idx].body = body
-        else
-          id = new_id(doc.entries)
-          table.insert(doc.entries, {
-            id = id,
-            path = target.path,
-            first = target.first,
-            last = target.last,
-            sha = head_sha(target.root),
-            body = body,
-          })
-        end
-        save(target.root, doc)
-        vim.notify("Review comment saved")
+        id = new_id(doc.entries)
+        table.insert(doc.entries, {
+          id = id,
+          path = target.path,
+          first = target.first,
+          last = target.last,
+          sha = head_sha(target.root),
+          body = body,
+        })
       end
-      vim.bo[buf].modified = false
-      refresh_all()
-    end,
-  })
+      save(target.root, doc)
+      vim.notify("Review comment saved")
+    end
+    vim.bo[buf].modified = false
+    refresh_all()
+  end
+  vim.api.nvim_create_autocmd("BufWriteCmd", { buffer = buf, callback = commit })
 
   local function save_and_close()
-    if vim.bo[buf].modified then vim.cmd("write") end
+    if vim.bo[buf].modified then commit() end
     close_float(win)
   end
   local function delete_and_close()
@@ -307,6 +305,13 @@ local function open_editor(target)
   vim.keymap.set("n", "q", save_and_close, { buffer = buf, desc = "Save and close review comment" })
   vim.keymap.set("n", "<Esc>", save_and_close, { buffer = buf, desc = "Save and close review comment" })
   vim.keymap.set("n", "<leader>md", delete_and_close, { buffer = buf, desc = "Delete review comment" })
+  -- Any :quit (including <leader>q) saves first, so closing never needs `!`.
+  vim.api.nvim_create_autocmd("QuitPre", {
+    buffer = buf,
+    callback = function()
+      if vim.bo[buf].modified then commit() end
+    end,
+  })
 
   if not existing then
     vim.cmd("startinsert")
@@ -384,7 +389,29 @@ function M.preview()
     table.insert(lines, "")
     vim.list_extend(lines, e.body)
   end
-  vim.lsp.util.open_floating_preview(lines, "markdown", { border = "rounded", max_width = 90, focus_id = "user_review" })
+  -- The preview closes on a real cursor move away from where it opened. The
+  -- built-in CursorMoved close event is not used because a jump that precedes
+  -- the preview fires CursorMoved after the float is already open.
+  local src = vim.api.nvim_get_current_buf()
+  local pos = vim.api.nvim_win_get_cursor(0)
+  local _, pwin = vim.lsp.util.open_floating_preview(lines, "markdown", {
+    border = "rounded",
+    max_width = 90,
+    focus_id = "user_review",
+    close_events = { "InsertEnter", "BufHidden" },
+  })
+  vim.api.nvim_create_autocmd("CursorMoved", {
+    buffer = src,
+    callback = function()
+      if not vim.api.nvim_win_is_valid(pwin) then return true end
+      if vim.api.nvim_get_current_win() == pwin then return end
+      local cur = vim.api.nvim_win_get_cursor(0)
+      if cur[1] ~= pos[1] or cur[2] ~= pos[2] then
+        vim.api.nvim_win_close(pwin, true)
+        return true
+      end
+    end,
+  })
 end
 
 -- direction: 1 for next, -1 for previous. Wraps around the file and previews
@@ -557,7 +584,13 @@ function M.setup()
     group = group,
     pattern = "markdown",
     callback = function(args)
-      if vim.api.nvim_buf_get_name(args.buf):match("^review://") then return end
+      local name = vim.api.nvim_buf_get_name(args.buf)
+      if name:match("^review://") then return end
+      -- Lets the built-in gf/gF resolve repo-relative paths from any cwd.
+      local root = name ~= "" and git_root(name)
+      if root then
+        vim.bo[args.buf].path = vim.go.path .. "," .. root
+      end
       map("n", "<CR>", function()
         if not M.follow() then
           vim.api.nvim_feedkeys(vim.keycode("<CR>"), "n", false)
