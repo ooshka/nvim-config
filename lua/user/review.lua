@@ -323,7 +323,7 @@ local function open_editor(target)
     border = "rounded",
     title = string.format(" %s · %s:%s ", source, target.path, range_text(target)),
     title_pos = "center",
-    footer = " q/<Esc> save & close · <C-s> ask agent · <leader>md delete ",
+    footer = " q/<Esc> save & close · <leader>ms ask agent · <leader>md delete ",
     footer_pos = "center",
   })
   vim.wo[win].wrap = true
@@ -387,8 +387,7 @@ local function open_editor(target)
   vim.keymap.set("n", "<Esc>", save_and_close, { buffer = buf, desc = "Save and close review comment" })
   vim.keymap.set("n", "<leader>md", delete_and_close, { buffer = buf, desc = "Delete review comment" })
   -- Saves, closes, and queues the comment for the review agent to answer.
-  vim.keymap.set({ "n", "i" }, "<C-s>", function()
-    vim.cmd("stopinsert")
+  vim.keymap.set("n", "<leader>ms", function()
     if (vim.bo[buf].modified or not id) and not commit() then return end
     if not id then
       vim.notify("Write a question before asking the agent", vim.log.levels.WARN)

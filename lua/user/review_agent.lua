@@ -253,7 +253,7 @@ function M.review()
   if not root then return end
   if mode(root) == "explore" then
     vim.notify("Review agent: HEAD has no commits beyond its base branch, so there is"
-      .. " nothing to review. Ask about comments with <C-s> or <leader>ms instead.",
+      .. " nothing to review. Ask about comments with <leader>ms instead.",
       vim.log.levels.WARN)
     return
   end
