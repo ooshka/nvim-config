@@ -6,8 +6,11 @@
 -- so it is the only agent writing to pr_review/ and never races itself.
 --
 -- The session id lives in pr_review/.session. The first request without one
--- starts a session that builds pr_review/context.md (a brief of the change)
--- before doing the request; later requests resume that session. The review
+-- starts a session that builds pr_review/context.md before doing the request;
+-- later requests resume that session. When HEAD has commits beyond the base
+-- branch the brief describes that change (PR mode). Otherwise (e.g. on main)
+-- there is nothing to review, the comments are questions about the project,
+-- and the brief is built from them and the code they point at (explore mode). The review
 -- files are the source of truth, so a lost session only costs a re-read:
 -- delete .session (or :ReviewNewSession) to start over. `vim.g.review_agent_model`
 -- overrides the model.
@@ -47,13 +50,50 @@ local function write_session(root, id)
   vim.fn.writefile({ id }, session_file(root))
 end
 
-local function bootstrap_prompt()
-  return table.concat({
-    "You are the review agent for the current git branch, running headless through",
-    "the user's Neovim review queue. Nobody can answer questions mid-run, so make",
-    "reasonable choices and mention them in your final message. Create or edit",
-    "files only under pr_review/.",
+local function git(root, args)
+  local out = vim.system(vim.list_extend({ "git", "-C", root }, args), { text = true }):wait()
+  return out.code == 0 and vim.trim(out.stdout) or nil
+end
+
+-- "pr" when HEAD has commits that its base branch does not, "explore"
+-- otherwise (on the base branch, in sync with it, or no base found).
+local function mode(root)
+  local base = git(root, { "rev-parse", "--abbrev-ref", "origin/HEAD" }) or "main"
+  local ahead = git(root, { "rev-list", "--count", base .. "..HEAD" })
+  return (tonumber(ahead) or 0) > 0 and "pr" or "explore"
+end
+
+local COMMON_PREAMBLE = {
+  "You are the review agent for this repository, running headless through the",
+  "user's Neovim review queue. Nobody can answer questions mid-run, so make",
+  "reasonable choices and mention them in your final message. Create or edit",
+  "files only under pr_review/.",
+  "",
+}
+
+local function explore_prompt()
+  return table.concat(vim.list_extend(vim.deepcopy(COMMON_PREAMBLE), {
+    "There is no change under review: HEAD has no commits beyond its base branch.",
+    "The comments in pr_review/ are the user's questions while learning this",
+    "project, not review findings. Answer them as explanations: how the code",
+    "works, why it is shaped that way, and where to look next. Treat any",
+    "pr-discuss instructions about reviewing a PR in that light.",
     "",
+    "First, make sure pr_review/context.md is a current brief. If it exists, read",
+    "it. Otherwise create it: read pr_review/dev_review.md (and any other review",
+    "files), then the code each comment points at and enough around it to explain",
+    "it, then write a short orientation: what the project does, the main modules",
+    "involved in the comments and how they fit together, and recurring themes in",
+    "the questions. Keep it under 60 lines, hard-wrapped at 80, and start it with",
+    "`Mode: explore`.",
+    "",
+    "Then do the following request.",
+    "",
+  }), "\n")
+end
+
+local function pr_prompt()
+  return table.concat(vim.list_extend(vim.deepcopy(COMMON_PREAMBLE), {
     "First, make sure pr_review/context.md is a current brief of the change. If it",
     "exists, read it and update it if HEAD has moved past the head it records.",
     "Otherwise create it: find the base (`git rev-parse --abbrev-ref origin/HEAD`,",
@@ -65,7 +105,7 @@ local function bootstrap_prompt()
     "",
     "Then do the following request.",
     "",
-  }, "\n")
+  }), "\n")
 end
 
 local function request_prompt(req)
@@ -140,7 +180,11 @@ pump = function()
   if running or #queue == 0 then return end
   local req = table.remove(queue, 1)
   local session = read_session(req.root)
-  local prompt = (session and "" or bootstrap_prompt()) .. request_prompt(req)
+  local bootstrap = ""
+  if not session then
+    bootstrap = mode(req.root) == "pr" and pr_prompt() or explore_prompt()
+  end
+  local prompt = bootstrap .. request_prompt(req)
 
   local cmd = { "claude", "-p", "--output-format", "json" }
   if vim.g.review_agent_model then
@@ -207,6 +251,12 @@ end
 function M.review()
   local root = current_root()
   if not root then return end
+  if mode(root) == "explore" then
+    vim.notify("Review agent: HEAD has no commits beyond its base branch, so there is"
+      .. " nothing to review. Ask about comments with <C-s> or <leader>ms instead.",
+      vim.log.levels.WARN)
+    return
+  end
   if vim.uv.fs_stat(root .. "/" .. DIR .. "/agent_review.md") then
     local choice = vim.fn.confirm("pr_review/agent_review.md exists. Replace it?", "&Replace\n&Cancel", 2)
     if choice ~= 1 then return end
