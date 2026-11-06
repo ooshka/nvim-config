@@ -78,7 +78,8 @@ require("lazy").setup({
       wk.add({
         { "<leader>b", group = "buffers" },
         { "<leader>c", group = "code (lsp)" },
-        { "<leader>d", group = "diff (CodeDiff + Gitsigns)" },
+        { "<leader>d", group = "diff (CodeDiff)" },
+        { "<leader>h", group = "git hunks (Gitsigns)" },
         { "<leader>f", group = "find (telescope)" },
         { "<leader>l", group = "diagnostics" },
         { "<leader>m", group = "review comments" },
@@ -168,10 +169,10 @@ require("lazy").setup({
         local function map(lhs, rhs, desc)
           vim.keymap.set("n", lhs, rhs, { buffer = bufnr, desc = desc })
         end
-        map("<leader>dn", function() gs.nav_hunk("next") end, "Next Git hunk")
-        map("<leader>dp", function() gs.nav_hunk("prev") end, "Previous Git hunk")
-        map("<leader>dk", gs.preview_hunk, "Preview Git hunk")
-        map("<leader>db", function() gs.blame_line({ full = true }) end, "Blame current line")
+        map("]h", function() gs.nav_hunk("next") end, "Next Git hunk")
+        map("[h", function() gs.nav_hunk("prev") end, "Previous Git hunk")
+        map("<leader>hp", gs.preview_hunk, "Preview Git hunk")
+        map("<leader>hb", function() gs.blame_line({ full = true }) end, "Blame current line")
       end,
     },
   },

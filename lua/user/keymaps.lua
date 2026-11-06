@@ -55,7 +55,7 @@ map("n", "<leader>E", function()
 end, { desc = "File explorer at cwd" })
 
 -- Clear search highlight
-map("n", "<leader>h", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
+map("n", "<Esc>", "<cmd>nohlsearch<cr><Esc>", { desc = "Clear highlight" })
 
 -- Delete without replacing the default register.
 map({ "n", "x" }, "<leader>x", [["_d]], { desc = "Delete to black hole register" })

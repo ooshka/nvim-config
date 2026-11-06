@@ -19,6 +19,7 @@
 -- Files:
 --   dev_review.md  your comments; new comments are added here.
 --   outgoing.md    author-facing drafts; never shown.
+--   context.md     the review agent's brief of the change; never shown.
 --   anything else  agent reviews.
 -- Any shown entry can be edited, including replying to agent comments. A body
 -- line that is `!` or starts with `! ` flags the entry for sending. Entries
@@ -36,16 +37,21 @@ vim.api.nvim_set_hl(0, "ReviewRange", { link = "NonText", default = true })
 vim.api.nvim_set_hl(0, "ReviewAgentSign", { link = "DiagnosticHint", default = true })
 vim.api.nvim_set_hl(0, "ReviewAgentRange", { link = "NonText", default = true })
 vim.api.nvim_set_hl(0, "ReviewFlagSign", { link = "DiagnosticWarn", default = true })
+vim.api.nvim_set_hl(0, "ReviewPendingSign", { link = "DiagnosticWarn", default = true })
 
 local SIGNS = {
   dev = { icon = "\u{f075}", hl = "ReviewSign", range_hl = "ReviewRange", priority = 20 },
   agent = { icon = "\u{f06a9}", hl = "ReviewAgentSign", range_hl = "ReviewAgentRange", priority = 19 },
 }
 local FLAG_ICON, FLAG_HL = "\u{f024}", "ReviewFlagSign"
+local PENDING_ICON, PENDING_HL = "\u{f252}", "ReviewPendingSign"
+
+-- Entries waiting on the review agent, keyed by "<review file>#<review-id>".
+M.pending = {}
 
 -- Review file basename (without extension) -> kind; `false` hides the file.
 -- Unlisted files are agent reviews.
-local FILE_KINDS = { dev_review = "dev", outgoing = false }
+local FILE_KINDS = { dev_review = "dev", outgoing = false, context = false }
 
 -- Paths and git ------------------------------------------------------------
 
@@ -232,12 +238,18 @@ function M.refresh(buf)
   local count = vim.api.nvim_buf_line_count(buf)
   for _, e in ipairs(entries_for(root, rel)) do
     local sign = SIGNS[e.kind]
+    local icon, hl = sign.icon, sign.hl
+    if M.pending[e.file .. "#" .. e.id] then
+      icon, hl = PENDING_ICON, PENDING_HL
+    elseif e.flagged then
+      icon, hl = FLAG_ICON, FLAG_HL
+    end
     for l = e.first, math.min(e.last, count) do
       local head = l == e.first
       vim.api.nvim_buf_set_extmark(buf, ns, l - 1, 0, {
-        sign_text = head and (e.flagged and FLAG_ICON or sign.icon) or "│",
-        sign_hl_group = head and (e.flagged and FLAG_HL or sign.hl) or sign.range_hl,
-        priority = sign.priority + (e.flagged and 2 or 0),
+        sign_text = head and icon or "│",
+        sign_hl_group = head and hl or sign.range_hl,
+        priority = sign.priority + (icon ~= sign.icon and 2 or 0),
       })
     end
   end
@@ -248,6 +260,7 @@ local function refresh_all()
     M.refresh(buf)
   end
 end
+M.refresh_all = refresh_all
 
 -- Comment float ----------------------------------------------------------------
 
@@ -310,7 +323,7 @@ local function open_editor(target)
     border = "rounded",
     title = string.format(" %s · %s:%s ", source, target.path, range_text(target)),
     title_pos = "center",
-    footer = " q/<Esc> save & close · <leader>md delete ",
+    footer = " q/<Esc> save & close · <C-s> ask agent · <leader>md delete ",
     footer_pos = "center",
   })
   vim.wo[win].wrap = true
@@ -373,6 +386,18 @@ local function open_editor(target)
   vim.keymap.set("n", "q", save_and_close, { buffer = buf, desc = "Save and close review comment" })
   vim.keymap.set("n", "<Esc>", save_and_close, { buffer = buf, desc = "Save and close review comment" })
   vim.keymap.set("n", "<leader>md", delete_and_close, { buffer = buf, desc = "Delete review comment" })
+  -- Saves, closes, and queues the comment for the review agent to answer.
+  vim.keymap.set({ "n", "i" }, "<C-s>", function()
+    vim.cmd("stopinsert")
+    if (vim.bo[buf].modified or not id) and not commit() then return end
+    if not id then
+      vim.notify("Write a question before asking the agent", vim.log.levels.WARN)
+      return
+    end
+    close_float(win)
+    require("user.review_agent").ask(target.root, target.file, id,
+      string.format("%s:%s", target.path, range_text(target)))
+  end, { buffer = buf, desc = "Save and ask the review agent" })
   -- Any :quit (including <leader>q) saves first, so closing never needs `!`.
   -- After a refused save, quitting no longer retries it: `:q` stops with E37
   -- and `:q!` discards the edit.
@@ -511,6 +536,19 @@ local function show_preview(lines)
       end
     end,
   })
+end
+
+-- Previews entry `id` of `file` when the cursor is still on its lines.
+function M.preview_if_at(file, id)
+  local root, rel = buf_location(0)
+  if not root then return end
+  local lnum = vim.fn.line(".")
+  for _, e in ipairs(entries_at(root, rel, lnum)) do
+    if e.file == file and e.id == id then
+      close_preview()
+      return M.preview()
+    end
+  end
 end
 
 -- With a preview already open (from ]r, ]q or a previous call), moves focus
@@ -721,6 +759,7 @@ end
 -- Setup ------------------------------------------------------------------------
 
 function M.setup()
+  require("user.review_agent").setup()
   local map = vim.keymap.set
   map("n", "<leader>mc", M.comment_line, { desc = "Review: comment line / edit existing" })
   map("x", "<leader>mc", M.comment_range, { desc = "Review: comment selection" })
