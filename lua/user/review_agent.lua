@@ -5,7 +5,8 @@
 -- single headless Claude session per repository works through one at a time,
 -- so it is the only agent writing to pr_review/ and never races itself.
 --
--- The session id lives in pr_review/.session. The first request without one
+-- pr_review/.session holds the session id and, on its second line, the total
+-- cost in USD of the requests run in it (as reported by `claude -p`). The first request without one
 -- starts a session that builds pr_review/context.md before doing the request;
 -- later requests resume that session. When HEAD has commits beyond the base
 -- branch the brief describes that change (PR mode). Otherwise (e.g. on main)
@@ -39,15 +40,21 @@ local function session_file(root)
   return root .. "/" .. DIR .. "/.session"
 end
 
+-- Returns the session id (or nil) and its accumulated cost.
 local function read_session(root)
   local ok, lines = pcall(vim.fn.readfile, session_file(root))
   local id = ok and lines[1] and vim.trim(lines[1]) or ""
-  return id ~= "" and id or nil
+  if id == "" then return nil, 0 end
+  return id, tonumber(lines[2]) or 0
 end
 
-local function write_session(root, id)
+local function write_session(root, id, cost)
   vim.fn.mkdir(root .. "/" .. DIR, "p")
-  vim.fn.writefile({ id }, session_file(root))
+  vim.fn.writefile({ id, string.format("%.4f", cost) }, session_file(root))
+end
+
+local function dollars(cost)
+  return string.format("$%.2f", cost)
 end
 
 local function git(root, args)
@@ -137,14 +144,18 @@ local function pending_key(req)
   return req.file .. "#" .. req.id
 end
 
-local function finish(req, ok, message)
+local function finish(req, ok, message, cost)
   if req.kind == "ask" then
     review.pending[pending_key(req)] = nil
   end
   vim.cmd("silent! checktime")
+  if ok and req.before then
+    review.mark_changed(req.root, req.before)
+  end
   review.refresh_all()
   local level = ok and vim.log.levels.INFO or vim.log.levels.ERROR
-  vim.notify(string.format("Review agent (%s): %s", describe(req), message), level)
+  vim.notify(string.format("Review agent (%s%s): %s", describe(req),
+    cost and (", " .. dollars(cost)) or "", message), level)
   if ok and req.kind == "ask" then
     review.preview_if_at(req.file, req.id)
   end
@@ -152,7 +163,7 @@ end
 
 local pump
 
-local function on_exit(req, session, out)
+local function on_exit(req, session, session_cost, out)
   running = nil
   local ok_json, data = pcall(vim.json.decode, out.stdout or "")
   if out.code ~= 0 or not ok_json or type(data) ~= "table" then
@@ -168,18 +179,21 @@ local function on_exit(req, session, out)
     return pump()
   end
 
-  if data.session_id and data.session_id ~= session then
-    write_session(req.root, data.session_id)
+  local cost = tonumber(data.total_cost_usd) or 0
+  local id = data.session_id or session
+  if id then
+    write_session(req.root, id, (id == session and session_cost or 0) + cost)
   end
   local result = vim.trim(tostring(data.result or ""))
-  finish(req, not data.is_error, result ~= "" and result or "done")
+  finish(req, not data.is_error, result ~= "" and result or "done", cost)
   pump()
 end
 
 pump = function()
   if running or #queue == 0 then return end
   local req = table.remove(queue, 1)
-  local session = read_session(req.root)
+  local session, session_cost = read_session(req.root)
+  req.before = review.snapshot(req.root)
   local bootstrap = ""
   if not session then
     bootstrap = mode(req.root) == "pr" and pr_prompt() or explore_prompt()
@@ -198,7 +212,7 @@ pump = function()
   vim.list_extend(cmd, { "--", prompt })
 
   local ok, handle = pcall(vim.system, cmd, { cwd = req.root, text = true }, function(out)
-    vim.schedule(function() on_exit(req, session, out) end)
+    vim.schedule(function() on_exit(req, session, session_cost, out) end)
   end)
   if not ok then
     finish(req, false, "could not start claude: " .. tostring(handle))
@@ -284,9 +298,12 @@ function M.status()
     table.insert(lines, string.format("%d. %s", i, describe(q)))
   end
   local root = current_root()
-  local session = root and read_session(root)
+  local session, cost = nil, 0
+  if root then session, cost = read_session(root) end
+  if #lines == 0 then table.insert(lines, "idle") end
   table.insert(lines, "session: " .. (session or "none (next request starts one)"))
-  vim.notify("Review agent\n" .. table.concat(lines, "\n"))
+  local header = session and ("Review agent · session " .. dollars(cost)) or "Review agent"
+  vim.notify(header .. "\n" .. table.concat(lines, "\n"))
 end
 
 function M.cancel()

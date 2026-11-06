@@ -46,8 +46,14 @@ local SIGNS = {
 local FLAG_ICON, FLAG_HL = "\u{f024}", "ReviewFlagSign"
 local PENDING_ICON, PENDING_HL = "\u{f252}", "ReviewPendingSign"
 
--- Entries waiting on the review agent, keyed by "<review file>#<review-id>".
+-- Entries waiting on the review agent, and entries the agent changed that have
+-- not been looked at since, keyed by "<review file>#<review-id>".
 M.pending = {}
+M.unread = {}
+
+local function entry_key(e)
+  return e.file .. "#" .. e.id
+end
 
 -- Review file basename (without extension) -> kind; `false` hides the file.
 -- Unlisted files are agent reviews.
@@ -227,6 +233,30 @@ local function entries_at(root, rel, lnum)
   end, entries_for(root, rel))
 end
 
+-- Body text of every entry under `root`, keyed by entry; compare two
+-- snapshots with M.mark_changed to find what a run of the agent touched.
+function M.snapshot(root)
+  local snap = {}
+  for _, e in ipairs(entries_for(root, nil, true)) do
+    snap[entry_key(e)] = table.concat(e.body, "\n")
+  end
+  return snap
+end
+
+-- Marks entries that are new or whose body differs from `before` as unread.
+function M.mark_changed(root, before)
+  for key, body in pairs(M.snapshot(root)) do
+    if before[key] ~= body then M.unread[key] = true end
+  end
+end
+
+local function mark_read(key)
+  if M.unread[key] then
+    M.unread[key] = nil
+    if M.refresh_qf then M.refresh_qf() end
+  end
+end
+
 -- Signs ----------------------------------------------------------------------
 
 function M.refresh(buf)
@@ -259,6 +289,7 @@ local function refresh_all()
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     M.refresh(buf)
   end
+  if M.refresh_qf then M.refresh_qf() end
 end
 M.refresh_all = refresh_all
 
@@ -294,6 +325,7 @@ end
 -- written by an agent in the meantime are never overwritten.
 local function open_editor(target)
   local existing = target.id and find_entry(load_file(target.file), target.id)
+  if target.id then mark_read(target.file .. "#" .. target.id) end
   local source = vim.fn.fnamemodify(target.file, ":t:r")
 
   local name = string.format("review://%s/%s:%s#%s", source, target.path, range_text(target), target.id or "new")
@@ -568,6 +600,7 @@ function M.preview()
   for i, e in ipairs(hits) do
     if i > 1 then vim.list_extend(lines, { "", "---", "" }) end
     vim.list_extend(lines, preview_lines(e))
+    mark_read(entry_key(e))
   end
   show_preview(lines)
 end
@@ -606,24 +639,60 @@ function M.jump(direction)
   M.preview()
 end
 
-local function qf_set(root, title, entries)
+-- The review list currently in quickfix, so it can be rebuilt when comment
+-- states change: { root, title, file? }.
+local qf_source
+
+local function qf_entries(src)
+  if not src.file then
+    return entries_for(src.root, nil, true)
+  end
+  local source = vim.fn.fnamemodify(src.file, ":t:r")
+  return vim.tbl_map(function(e)
+    return vim.tbl_extend("force", e, { source = source, file = src.file })
+  end, parse(vim.fn.readfile(src.file)).entries)
+end
+
+-- Each item starts with a state marker: hourglass while the agent is working
+-- on the entry, a dot when the agent changed it and it has not been viewed.
+local function qf_items(root, entries)
   local items = {}
   for _, e in ipairs(entries) do
+    local key = entry_key(e)
     local tag = e.source == "dev_review" and "dev" or e.source
     if e.severity then tag = tag .. "·" .. e.severity end
     if e.flagged then tag = tag .. " !" end
     if e.orphaned then tag = tag .. " orphaned" end
+    local state = M.pending[key] and (PENDING_ICON .. " ") or M.unread[key] and "\u{f444} " or "  "
     table.insert(items, {
       filename = root .. "/" .. e.path,
       lnum = e.first,
       end_lnum = e.last,
-      text = string.format("[%s] %s", tag, e.body[1] or ""),
-      user_data = { review_preview = preview_lines(e) },
+      text = string.format("%s[%s] %s", state, tag, e.body[1] or ""),
+      user_data = { review_preview = preview_lines(e), review_key = key },
     })
   end
-  vim.fn.setqflist({}, " ", { title = title, items = items })
+  return items
+end
+
+local function qf_set(src)
+  vim.fn.setqflist({}, " ", { title = src.title, items = qf_items(src.root, qf_entries(src)) })
+  qf_source = src
   vim.cmd("copen")
   vim.cmd("wincmd p")
+end
+
+-- Rebuilds the review list in place (keeping the current item) when it is
+-- still the active quickfix list.
+function M.refresh_qf()
+  if not qf_source then return end
+  local cur = vim.fn.getqflist({ title = 0, idx = 0 })
+  if cur.title ~= qf_source.title then return end
+  vim.fn.setqflist({}, "r", {
+    title = cur.title,
+    items = qf_items(qf_source.root, qf_entries(qf_source)),
+    idx = cur.idx,
+  })
 end
 
 -- Fills the quickfix list with every shown review comment (dev and agent,
@@ -638,19 +707,14 @@ function M.quickfix(file)
       vim.notify("No review file found: " .. file, vim.log.levels.WARN)
       return
     end
-    local source = vim.fn.fnamemodify(file, ":t:r")
-    local entries = vim.tbl_map(function(e)
-      return vim.tbl_extend("force", e, { source = source })
-    end, parse(vim.fn.readfile(file)).entries)
-    return qf_set(root, "Review: " .. source, entries)
+    return qf_set({ root = vim.fs.normalize(root), file = file, title = "Review: " .. vim.fn.fnamemodify(file, ":t:r") })
   end
   local root = git_root(vim.api.nvim_buf_get_name(0))
-  local entries = root and entries_for(root, nil, true) or {}
-  if #entries == 0 then
+  if not root or #entries_for(root, nil, true) == 0 then
     vim.notify("No review comments found", vim.log.levels.WARN)
     return
   end
-  qf_set(root, "Review: all comments", entries)
+  qf_set({ root = vim.fs.normalize(root), title = "Review: all comments" })
 end
 
 function M.quickfix_agent()
@@ -672,6 +736,7 @@ function M.qf_step(cmd)
   local data = item and item.user_data
   if type(data) == "table" and data.review_preview then
     show_preview(data.review_preview)
+    if data.review_key then mark_read(data.review_key) end
   end
 end
 
